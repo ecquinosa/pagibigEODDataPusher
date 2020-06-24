@@ -129,17 +129,17 @@ namespace pagibigEODDataPusher
             }
         }
 
-        public bool SelectEODData(string reportDate)
+        public bool SelectEODData(string bankID, string workplaceId, string reportDate)
         {
             try
             {
                 StringBuilder sb = new StringBuilder();
-                sb.Append("SELECT CAST(dbo.tbl_Member.EntryDate AS date) AS entryDate, dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, 1 As BankID, 1 As WorkplaceID, NULL, 0, COUNT_BIG(*) AS totalCnt, ");
+                sb.Append(string.Format("SELECT CAST(dbo.tbl_Member.EntryDate AS date) AS entryDate, dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, {0} As BankID, {1} As WorkplaceID, NULL, 0, COUNT_BIG(*) AS totalCnt, ", bankID, workplaceId));
                 sb.Append("COUNT_BIG(CASE WHEN Application_Remarks LIKE '%With Warranty%' THEN 1 END) AS ww, COUNT_BIG(CASE WHEN Application_Remarks LIKE '%Non-Warranty%' THEN 1 END) AS nw, 0 As Spoiled, 0 As MagError, ");
-                sb.Append("0 As BalanceCard, (COUNT_BIG(*) * 125) As Expected, 0 As Deposited, 0 As ByDSA, 0 As ByBank, 0 As Variance, NULL As DepositoryBankID, 1, 0, 0, GETDATE(), GETDATE() ");
+                sb.Append("0 As BalanceCard, 0 As Expected, 0 As Deposited, 0 As ByDSA, 0 As ByBank, 0 As Variance, NULL As DepositoryBankID, 1, 0, 0, GETDATE(), GETDATE() ");
                 sb.Append("FROM dbo.tbl_Member INNER JOIN ");
                 sb.Append("tbl_branch on tbl_branch.requesting_branchcode = dbo.tbl_Member.requesting_branchcode ");
-                sb.Append("WHERE dbo.tbl_Member.EntryDate = '" + reportDate  + " 00:00:00' ");
+                sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate = '{0} 00:00:00' ",reportDate));
                 sb.Append("GROUP BY dbo.tbl_Member.requesting_branchcode, tbl_branch.Branch, CAST(dbo.tbl_Member.EntryDate AS date) ");
                 //sb.Append("ORDER BY CAST(dbo.tbl_Member.EntryDate AS date");
 
@@ -213,44 +213,61 @@ namespace pagibigEODDataPusher
             }
         }
 
-        public bool Check_LoanDeductionIfExist(EOD eod)
+        //public bool Check_LoanDeductionIfExist(EOD eod)
+        //{
+        //    try
+        //    {
+        //        OpenConnection();
+        //        cmd = new SqlCommand("SELECT COUNT(*) FROM tbl_LoanDeductionRecon WHERE PagIBIGID=@PagIBIGID AND PaymentRefNo=@PaymentRefNo AND ReferenceFile=@ReferenceFile", con);
+        //        cmd.Parameters.AddWithValue("PagIBIGID", eod.PagIBIGID);
+        //        cmd.Parameters.AddWithValue("PaymentRefNo", eod.PaymentRefNo);
+        //        cmd.Parameters.AddWithValue("ReferenceFile", eod.ReferenceFile);
+
+        //        _ExecuteScalar(CommandType.Text);
+
+        //        return true;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        strErrorMessage = ex.Message;
+        //        return false;
+        //    }
+        //}
+
+        public bool Add_EodDeposits(EOD eod, string bankid,
+                                    string Report_Date, string requesting_branchcode, string Branch, string BankID, string WorkplaceID, string Received_Card, string Issued_Card, string WWarranty_Card,
+                                    string NWarranty_Card, string Spoiled_Card, string MagError_Card, string Balance_Card, string Expected_Cash, string Deposited_Cash, string ByDSA_Cash, string ByBank_Cash)
         {
             try
             {
+                StringBuilder sb = new StringBuilder();
+                sb.Append("INSERT INTO dbo.tbl_DCS_EODDeposits (Report_Date, requesting_branchcode, Branch, BankID, WorkplaceID, Username, Received_Card, Issued_Card, WWarranty_Card, NWarranty_Card, Spoiled_Card, MagError_Card, Balance_Card, Expected_Cash, Deposited_Cash, ");
+                sb.Append("ByDSA_Cash, ByBank_Cash, Variance, DepositoryBankID, StatusTypeID, ReworkCntr, ExcessAppForm, Posted_Date, LastUpdated_Date) ");
+                sb.Append(" VALUES ");
+                sb.Append("(@Report_Date, @requesting_branchcode, @Branch, @BankID, @WorkplaceID, NULL, @Received_Card, @Issued_Card, @WWarranty_Card, @NWarranty_Card, @Spoiled_Card, @MagError_Card, @Balance_Card, @Expected_Cash, @Deposited_Cash, ");
+                sb.Append("@ByDSA_Cash, @ByBank_Cash, 0, NULL, 1, 0, 0, GETDATE(), GETDATE()) ");
+
+
+
                 OpenConnection();
-                cmd = new SqlCommand("SELECT COUNT(*) FROM tbl_LoanDeductionRecon WHERE PagIBIGID=@PagIBIGID AND PaymentRefNo=@PaymentRefNo AND ReferenceFile=@ReferenceFile", con);
-                cmd.Parameters.AddWithValue("PagIBIGID", eod.PagIBIGID);
-                cmd.Parameters.AddWithValue("PaymentRefNo", eod.PaymentRefNo);
-                cmd.Parameters.AddWithValue("ReferenceFile", eod.ReferenceFile);
-
-                _ExecuteScalar(CommandType.Text);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                strErrorMessage = ex.Message;
-                return false;
-            }
-        }
-
-        public bool Add_LoanDeductionRecon(EOD eod, short bankID)
-        {
-            try
-            {
-                OpenConnection();
-                cmd = new SqlCommand(string.Format("INSERT INTO tbl_LoanDeductionRecon (BankID, PagIBIGID, ActualTxn_Date, Processed_Date, Processed_Time, AcctNo, BranchCode, Transaction_Amount, PaymentRefNo, Remarks, ReferenceFile, DatePosted) VALUES (@BankID, @PagIBIGID, @ActualTxn_Date, @Processed_Date, @Processed_Time, @AcctNo, @BranchCode, @Transaction_Amount, @PaymentRefNo, @Remarks, @ReferenceFile, GETDATE())"), con);
-                cmd.Parameters.AddWithValue("BankID", bankID);
-                cmd.Parameters.AddWithValue("PagIBIGID", eod.PagIBIGID);
-                cmd.Parameters.AddWithValue("ActualTxn_Date", eod.ActualTxn_Date);
-                cmd.Parameters.AddWithValue("Processed_Date", eod.Processed_Date);
-                cmd.Parameters.AddWithValue("Processed_Time", eod.Processed_Time);
-                cmd.Parameters.AddWithValue("AcctNo", eod.AcctNo);
-                cmd.Parameters.AddWithValue("BranchCode", eod.BranchCode);
-                cmd.Parameters.AddWithValue("Transaction_Amount", eod.Transaction_Amount);
-                cmd.Parameters.AddWithValue("PaymentRefNo", eod.PaymentRefNo);
-                cmd.Parameters.AddWithValue("Remarks", eod.Remarks);
-                cmd.Parameters.AddWithValue("ReferenceFile", eod.ReferenceFile);
+                cmd = new SqlCommand(sb.ToString(), con);
+                cmd.Parameters.AddWithValue("Report_Date", Report_Date);
+                cmd.Parameters.AddWithValue("requesting_branchcode", requesting_branchcode);
+                cmd.Parameters.AddWithValue("Branch", Branch);
+                cmd.Parameters.AddWithValue("BankID", BankID);
+                cmd.Parameters.AddWithValue("WorkplaceID", WorkplaceID);
+                cmd.Parameters.AddWithValue("Received_Card", Received_Card);
+                cmd.Parameters.AddWithValue("Issued_Card", Issued_Card);
+                cmd.Parameters.AddWithValue("WWarranty_Card", WWarranty_Card);
+                cmd.Parameters.AddWithValue("NWarranty_Card", NWarranty_Card);
+                cmd.Parameters.AddWithValue("Spoiled_Card", Spoiled_Card);
+                cmd.Parameters.AddWithValue("MagError_Card", MagError_Card);
+                cmd.Parameters.AddWithValue("Balance_Card", Balance_Card);
+                cmd.Parameters.AddWithValue("Expected_Cash", Expected_Cash);
+                cmd.Parameters.AddWithValue("Deposited_Cash", Deposited_Cash);
+                cmd.Parameters.AddWithValue("ByDSA_Cash", ByDSA_Cash);
+                cmd.Parameters.AddWithValue("ByBank_Cash", ByBank_Cash);
+                
 
                 ExecuteNonQuery(CommandType.Text);
 

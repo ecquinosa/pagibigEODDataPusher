@@ -12,7 +12,5 @@ namespace pagibigEODDataPusher
 
         public DateTime reportDate { get; set; }
 
-
-
     }
 }

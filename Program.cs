@@ -23,6 +23,10 @@ namespace pagibigEODDataPusher
         static void Main()
         {
             logger.Info("Application started");
+            Console.Write(DateTime.Now.DayOfWeek);
+            Console.ReadLine();
+
+            return;
 
             //validatations
             Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Initializing...");
@@ -35,7 +39,8 @@ namespace pagibigEODDataPusher
 
         private static bool Init()
         {
-            DAL dal = null;
+            DAL dalLocal = null;
+            DAL dalSys = null;
             try
             {
                 //check if another instance is running
@@ -66,14 +71,24 @@ namespace pagibigEODDataPusher
                 }
 
                 //check dbase connection
-                dal = new DAL(config);
-                if (!dal.IsConnectionOK())
+                dalLocal = new DAL(config.DbaseConStr);
+                if (!dalLocal.IsConnectionOK())
                 {
-                    logger.Error("Connection to database failed. " + dal.ErrorMessage);
+                    logger.Error("Connection to local database failed. " + dalLocal.ErrorMessage);
                     return false;
                 }
-                dal.Dispose();
-                dal = null;
+                dalLocal.Dispose();
+                dalLocal = null;
+
+                //check dbase connection
+                dalSys = new DAL(config.DbaseConStr);
+                if (!dalLocal.IsConnectionOK())
+                {
+                    logger.Error("Connection to sys database failed. " + dalSys.ErrorMessage);
+                    return false;
+                }
+                dalSys.Dispose();
+                dalSys = null;
 
             }
             catch (Exception ex)
