@@ -129,19 +129,49 @@ namespace pagibigEODDataPusher
             }
         }
 
-        public bool SelectEODData(string bankID, string workplaceId, string reportDate)
+        public bool SelectEODData_Bank(string bankID, string reportDate)
         {
             try
             {
                 StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("SELECT CAST(dbo.tbl_Member.EntryDate AS date) AS entryDate, dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, {0} As BankID, {1} As WorkplaceID, NULL, 0, COUNT_BIG(*) AS totalCnt, ", bankID, workplaceId));
-                sb.Append("COUNT_BIG(CASE WHEN Application_Remarks LIKE '%With Warranty%' THEN 1 END) AS ww, COUNT_BIG(CASE WHEN Application_Remarks LIKE '%Non-Warranty%' THEN 1 END) AS nw, 0 As Spoiled, 0 As MagError, ");
-                sb.Append("0 As BalanceCard, 0 As Expected, 0 As Deposited, 0 As ByDSA, 0 As ByBank, 0 As Variance, NULL As DepositoryBankID, 1, 0, 0, GETDATE(), GETDATE() ");
+                //sb.Append(string.Format("SELECT '{0}' AS entryDate, dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, {1} As BankID, 0 As WorkplaceID, NULL, 0, COUNT_BIG(*) AS totalCnt, ", reportDate, bankID));
+                //sb.Append("COUNT_BIG(CASE WHEN Application_Remarks LIKE '%With Warranty%' THEN 1 END) AS ww, COUNT_BIG(CASE WHEN Application_Remarks LIKE '%Non-Warranty%' THEN 1 END) AS nw, 0 As Spoiled, 0 As MagError, ");
+                //sb.Append("0 As BalanceCard, 0 As Expected, 0 As Deposited, 0 As ByDSA, 0 As ByBank, 0 As Variance, NULL As DepositoryBankID, 1, 0, 0, GETDATE(), GETDATE(), RefNum ");
+                //sb.Append("FROM dbo.tbl_Member INNER JOIN ");
+                //sb.Append("tbl_branch on tbl_branch.requesting_branchcode = dbo.tbl_Member.requesting_branchcode ");
+                //sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59'", reportDate));
+                //sb.Append("GROUP BY dbo.tbl_Member.requesting_branchcode, tbl_branch.Branch ");
+                //sb.Append("ORDER BY CAST(dbo.tbl_Member.EntryDate AS date");
+
+                sb.Append(string.Format("SELECT dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, {1} As BankID, 0 As WorkplaceID, 0 AS totalCnt, ", reportDate, bankID));
+                sb.Append("0 AS ww, 0 AS nw, 0 As Expected, 0 As ByDSA, 0 As ByBank, RefNum, Application_Remarks ");
                 sb.Append("FROM dbo.tbl_Member INNER JOIN ");
                 sb.Append("tbl_branch on tbl_branch.requesting_branchcode = dbo.tbl_Member.requesting_branchcode ");
-                sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate = '{0} 00:00:00' ",reportDate));
-                sb.Append("GROUP BY dbo.tbl_Member.requesting_branchcode, tbl_branch.Branch, CAST(dbo.tbl_Member.EntryDate AS date) ");
+                sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59'", reportDate));
+                //sb.Append("GROUP BY dbo.tbl_Member.requesting_branchcode, tbl_branch.Branch ");
                 //sb.Append("ORDER BY CAST(dbo.tbl_Member.EntryDate AS date");
+
+                OpenConnection();
+                cmd = new SqlCommand(sb.ToString(), con);
+
+                FillDataAdapter(CommandType.Text);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                strErrorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        public bool SelectEOD_MemberRefNum_Sys(string reportDate)
+        {
+            try
+            {
+                StringBuilder sb = new StringBuilder();                
+                sb.Append("SELECT refNum, workplaceID, bankID FROM tbl_EOD_MemberRefNum ");                
+                sb.Append(string.Format("WHERE posted_date BETWEEN '{0} 00:00:00' AND '{0} 23:23:59'", reportDate));                                
 
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);
@@ -234,8 +264,7 @@ namespace pagibigEODDataPusher
         //    }
         //}
 
-        public bool Add_EodDeposits(EOD eod, string bankid,
-                                    string Report_Date, string requesting_branchcode, string Branch, string BankID, string WorkplaceID, string Received_Card, string Issued_Card, string WWarranty_Card,
+        public bool Add_EodDeposits(string Report_Date, string requesting_branchcode, string Branch, string BankID, string WorkplaceID, string Received_Card, string Issued_Card, string WWarranty_Card,
                                     string NWarranty_Card, string Spoiled_Card, string MagError_Card, string Balance_Card, string Expected_Cash, string Deposited_Cash, string ByDSA_Cash, string ByBank_Cash)
         {
             try
