@@ -121,81 +121,26 @@ namespace pagibigEODDataPusher
             }
         }
 
+        class EODData
+        {
+            public string reqBranch { get; set; }
+            public string Branch { get; set; }
+            public int WorkplaceId { get; set; }
+            public int totalCount { get; set; }
+            public int nw { get; set; }
+            public int ww { get; set; }
+        }
+
         private static bool ProcessEODData()
         {
             string reportDate = "2020-06-15";
-            DataTable dtEODdata = null;
-            DataTable dtEODdataGroup = null;
-            DataTable dtMemberRefNum = null;
 
-            if (dalSys.SelectEOD_MemberRefNum_Sys(reportDate))
+
+            EOD eod = new EOD(config,reportDate);
+            if (eod.GenerateEndOfDay())
             {
-                dtMemberRefNum = dalSys.TableResult;
-            }
-
-            if (dalLocal.SelectEODData_Bank(config.BankID.ToString(), reportDate))
-            {
-                dtEODdata = dalLocal.TableResult;
-                dtEODdataGroup = dtEODdata.Clone();
-            }
-            else
-            {
-                Console.WriteLine(dalLocal.ErrorMessage);
-            }
-
-            foreach (DataRow rw in dtEODdata.Rows)
-            {
-                if (dtMemberRefNum.Select("refNum='" + rw["RefNum"].ToString() + "'").Length > 0) rw["WorkplaceID"] = dtMemberRefNum.Select("refNum='" + rw["RefNum"].ToString() + "'")[0]["workplaceID"];
-            }
-
-            DataTable dtBranchWorkplaceId = dtEODdata.DefaultView.ToTable(true, "reqBranch", "WorkplaceID");
-
-            Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Grouping by branch and workplace...");
-            foreach (DataRow rw in dtBranchWorkplaceId.Rows)
-            {
-                DataTable dtTemp = dtEODdata.Select(string.Format("reqBranch='{0}' and WorkplaceID={1}", rw[0].ToString(), rw[1].ToString())).CopyToDataTable();
-
-                DataRow newRow = dtEODdataGroup.NewRow();
-                foreach (DataColumn col in dtTemp.Columns)
-                {
-                    switch (col.ColumnName)
-                    {
-                        case "RefNum":
-                        case "Application_Remarks":
-                            break;
-                        case "nw":
-                            newRow[col.ColumnName] = dtTemp.Select(string.Format("Application_Remarks LIKE '%Non-Warranty%'")).Length;
-                            break;
-                        case "ww":
-                            newRow[col.ColumnName] = dtTemp.Select(string.Format("Application_Remarks LIKE '%With Warranty%'")).Length;
-                            break;
-                        case "Expected":
-                            newRow[col.ColumnName] = Convert.ToDecimal((Convert.ToInt64(newRow["totalCnt"]) - Convert.ToInt64(newRow["ww"])) * 125);
-                            break;
-                        case "ByDSA":
-                            newRow[col.ColumnName] = newRow["Expected"];
-                            break;
-                        case "totalCnt":
-                            newRow[col.ColumnName] = dtTemp.DefaultView.Count.ToString();
-                            break;
-                        default:
-                            newRow[col.ColumnName] = dtTemp.Rows[0][col.ColumnName];
-                            break;
-                    }
-                }
-
-                dtEODdataGroup.Rows.Add(newRow);
-            }
-
-            Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Done!");
-
-            foreach (DataRow rw in dtEODdataGroup.Rows)
-            {
-                if (!dalSys.Add_EodDeposits(reportDate, rw["reqBranch"].ToString(), rw["Branch"].ToString(), config.BankID.ToString(), rw["WorkplaceID"].ToString(), "0", "0", rw["ww"].ToString(), rw["nw"].ToString(), "0", "0", "0", rw["Expected"].ToString(), "0", rw["ByDSA"].ToString(), "0"))
-                {
-                    logger.Error(dalSys.ErrorMessage);
-                }
-            }
+                return true;
+            }         
 
 
             return true;
