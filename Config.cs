@@ -9,8 +9,18 @@ namespace pagibigEODDataPusher
     class Config
     {
         public short BankID { get; set; }        
-        public string DbaseConStr { get; set; }
+        public string DbaseConStrUbp { get; set; }
+        public string DbaseConStrAub { get; set; }
         public string DbaseConStrSys { get; set; }
+
+        public string SmtpHost { get; set; }
+        public int SmtpPort { get; set; }
+        public string SmtpUser  { get; set; }
+        public string SmtpPassword { get; set; }
+        public int SmtpTimeout { get; set; }
+
+        public string EmailRecipientsTo { get; set; }
+        public string EmailRecipientsCC { get; set; }
 
     }
 }

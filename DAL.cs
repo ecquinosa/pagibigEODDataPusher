@@ -176,7 +176,7 @@ namespace pagibigEODDataPusher
         }
 
 
-        public bool SelectDCS_Card_Transaction_Bank(string reportDate)
+        public bool SelectDCS_Card_Transaction_Spoiled_Bank(string reportDate)
         {
             try
             {
@@ -184,6 +184,58 @@ namespace pagibigEODDataPusher
                 sb.Append("select BranchCode, SUM(Quantity) As Spoiled from tbl_DCS_Card_Transaction ");
                 sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
                 sb.Append("GROUP BY BranchCode");
+
+                OpenConnection();
+                cmd = new SqlCommand(sb.ToString(), con);
+
+                FillDataAdapter(CommandType.Text);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                strErrorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        public bool SelectDCS_Card_Transaction_MagError_Bank(string reportDate)
+        {
+            try
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append("select BranchCode, SUM(Quantity) As Spoiled from tbl_DCS_Card_Transaction ");
+                sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
+                sb.Append("GROUP BY BranchCode");
+
+                OpenConnection();
+                cmd = new SqlCommand(sb.ToString(), con);
+
+                FillDataAdapter(CommandType.Text);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                strErrorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        public bool SelectDailyMonitoringReport()
+        {
+            try
+            {
+                string reportDate = DateTime.Now.ToString("yyyy-MM-dd");
+
+                StringBuilder sb = new StringBuilder();
+                sb.Append("SELECT MONTH(Report_Date) As ReportMonth, WorkplaceID as WorkplaceId, SUM(Received_Card) as Received_Card, SUM(Issued_Card) as Issued_Card, ");
+                sb.Append("SUM(WWarranty_Card) as WWarranty_Card, SUM(NWarranty_Card) as NWarranty_Card, SUM(Spoiled_Card) as Spoiled_Card, SUM(MagError_Card) as MagError_Card,  ");
+                sb.Append("SUM(Balance_Card) as Balance_Card, SUM(Expected_Cash) as Expected_Cash, SUM(Deposited_Cash) as Deposited_Cash,  ");
+                sb.Append("SUM(ByDSA_Cash) as ByDSA_Cash, SUM(ByBank_Cash) as ByBank_Cash, SUM(Variance) as Variance, 0 as ConsumablesUsedRibbon, 0 as ConsumablesUsedOR, 0 as ConsumablesUsedCL ");
+                sb.Append("FROM dbo.tbl_DCS_EODDeposits ");
+                sb.Append(string.Format("WHERE Report_Date BETWEEN '2020-01-01' AND '{0}' ", reportDate));
+                sb.Append("GROUP BY MONTH(Report_Date), WorkplaceID ");                
 
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);
@@ -276,6 +328,24 @@ namespace pagibigEODDataPusher
                 return false;
             }
         }
+        public bool CheckIfReportDateExist(string reportDate)
+        {
+            try
+            {
+                //string reportDate = DateTime.Now.ToString("yyyy-MM-dd");
+                OpenConnection();
+                cmd = new SqlCommand("select count(*) from dbo.tbl_DCS_EODDeposits" + string.Format(" where Report_Date = '{0}' ", reportDate), con);
+
+                _ExecuteScalar(CommandType.Text);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                strErrorMessage = ex.Message;
+                return false;
+            }
+        }        
 
         //public bool Check_LoanDeductionIfExist(EOD eod)
         //{
@@ -308,7 +378,7 @@ namespace pagibigEODDataPusher
                 sb.Append("ByDSA_Cash, ByBank_Cash, Variance, DepositoryBankID, StatusTypeID, ReworkCntr, ExcessAppForm, Posted_Date, LastUpdated_Date) ");
                 sb.Append(" VALUES ");
                 sb.Append("(@Report_Date, @requesting_branchcode, @Branch, @BankID, @WorkplaceID, NULL, @Received_Card, @Issued_Card, @WWarranty_Card, @NWarranty_Card, @Spoiled_Card, @MagError_Card, @Balance_Card, @Expected_Cash, @Deposited_Cash, ");
-                sb.Append("@ByDSA_Cash, @ByBank_Cash, 0, NULL, 1, 0, 0, GETDATE(), GETDATE()) ");
+                sb.Append("@ByDSA_Cash, @ByBank_Cash, 0, NULL, 1, 0, 0, GETDATE(), GETDATE()); SELECT SCOPE_IDENTITY() AS [SCOPE_IDENTITY];  ");
 
 
 
@@ -331,6 +401,34 @@ namespace pagibigEODDataPusher
                 cmd.Parameters.AddWithValue("ByDSA_Cash", ByDSA_Cash);
                 cmd.Parameters.AddWithValue("ByBank_Cash", ByBank_Cash);
 
+                _ExecuteScalar(CommandType.Text);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                strErrorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        public bool Add_EODDeployed(int EODDepositID, int workplaceId)
+        {
+            try
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append("INSERT INTO dbo.tbl_DCS_EODDeployed (EODDepositID, DaysGracePeriod, Posted_Date, LastUpdated_Date) ");                
+                sb.Append(" VALUES ");                
+                sb.Append("(@EODDepositID, @DaysGracePeriod, GETDATE(), GETDATE()) ");
+
+
+                OpenConnection();
+                cmd = new SqlCommand(sb.ToString(), con);
+                cmd.Parameters.AddWithValue("EODDepositID", EODDepositID);
+                if(workplaceId==1)
+                    cmd.Parameters.AddWithValue("DaysGracePeriod", 1);                
+                else
+                    cmd.Parameters.AddWithValue("DaysGracePeriod", 2);
 
                 ExecuteNonQuery(CommandType.Text);
 

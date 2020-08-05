@@ -1,0 +1,13 @@
+[
+  {
+	"BankID": 1,    
+    "DbaseConStr": "Server=10.88.77.71;Database=LCDB_01;User=allcard;Password=MarlboroLights#;",	
+	"DbaseConStrSys": "Server=10.88.87.68;Database=LCDB_01_SYS;User=allcard;Password=MikasaAckerman#;",	
+	"SmtpHost": "smtp.allcard.com.ph",	
+	"SmtpPort": 587,	
+	"SmtpUser": "test",	
+	"SmtpPassword": "test",	
+	"SmtpTimeout": 10000,	
+  }
+]
+

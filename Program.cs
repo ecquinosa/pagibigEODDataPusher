@@ -6,12 +6,14 @@ using System.Threading.Tasks;
 using System.IO;
 using System.ServiceModel.Syndication;
 using System.Data;
+using NLog.Targets;
 
 namespace pagibigEODDataPusher
 {
     class Program
     {
 
+        private static string reportDateFile = AppDomain.CurrentDomain.BaseDirectory + "reportDate";
         private static string configFile = AppDomain.CurrentDomain.BaseDirectory + "config";
         private static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
         private static Config config;
@@ -33,6 +35,23 @@ namespace pagibigEODDataPusher
 
         static void Main()
         {
+            //string sourceFile = @"D:\ACCPAGIBIGPH3\accpagibigph3srv\AUB Missing KYC\dd.txt";
+            //string source = @"D:\ACCPAGIBIGPH3\AUB\PACKUPDATA\DONE\2020-06-29";
+            //string desti = @"D:\ACCPAGIBIGPH3\AUB\PACKUPDATA\FOR_TRANSFER\06292020_MISSINGFILES";
+            //foreach (string line in File.ReadAllLines(sourceFile))
+            //{
+            //    if (line.Trim() != "")
+            //    {
+            //        if (File.Exists(source + "\\" + line.Trim() + ".zip"))
+            //        {
+            //            File.Copy(source + "\\" + line.Trim() + ".zip", desti + "\\" + line.Trim() + ".zip");
+            //        }
+            //    }
+            //}
+
+            //return;
+
+
             //logger.Info("Application started");
             //Console.Write(DateTime.Now.DayOfWeek);
             //Console.ReadLine();
@@ -41,7 +60,17 @@ namespace pagibigEODDataPusher
 
             //validatations
             Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Initializing...");
-            if (!Init()) return;            
+            if (!Init())
+            {
+                Console.Write("Init error");
+                Console.ReadLine();                
+                return;
+            }
+            //else
+            //{
+            //    Console.Write("init success");
+            //    Console.ReadLine(); 
+            //}
 
             ProcessEODData();
 
@@ -81,7 +110,9 @@ namespace pagibigEODDataPusher
                     return false;
                 }
 
-                dalLocal = new DAL(config.DbaseConStr);
+                if (config.BankID == 1) dalLocal = new DAL(config.DbaseConStrUbp);
+                else dalLocal = new DAL(config.DbaseConStrAub);
+                
                 dalSys = new DAL(config.DbaseConStrSys);
 
                 //check dbase connection                
@@ -133,14 +164,17 @@ namespace pagibigEODDataPusher
 
         private static bool ProcessEODData()
         {
-            string reportDate = "2020-06-15";
+            //string reportDate = System.IO.File.ReadAllText(reportDateFile);
+            string reportDate = DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd");
 
-
-            EOD eod = new EOD(config,reportDate);
+            EOD eod = new EOD(config, reportDate);
             if (eod.GenerateEndOfDay())
             {
                 return true;
-            }         
+            }
+
+            //Reports report = new Reports();
+            //report.GenerateReportv2(config,logger);
 
 
             return true;
