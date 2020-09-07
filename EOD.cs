@@ -12,77 +12,134 @@ namespace pagibigEODDataPusher
 
     class EOD
     {
-        private static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
-
         public bool isSuccess { get; set; }
         public string errorMessage { get; set; }
 
-        private Config config;
         private string reportDate;
-        private DataTable dtEODdata = null;
-        private DataTable dtMemberRefNum = null;
-        private DataTable dtCardTxnSpoiled = null;
-        private DataTable dtCardTxnMagError = null;
+        private string dateToday;
 
         private static DAL dalLocal = null;
-        private static DAL dalSys = null;        
+        private static DAL dalSys = null;
 
-        public EOD(Config config, string reportDate)
+        public EOD(string reportDate, string dateToday)
         {
+            Program.logger.Info("Report date: " + reportDate);
+            Program.logger.Info("Date today: " + dateToday);
+
             this.reportDate = reportDate;
-            this.config = config;
-            if(config.BankID==1) dalLocal = new DAL(config.DbaseConStrUbp);
-            else dalLocal = new DAL(config.DbaseConStrAub);
-            dalSys = new DAL(config.DbaseConStrSys);
+            this.dateToday = dateToday;
+            if (Program.config.BankID == Convert.ToInt16(Program.bankID.UBP)) dalLocal = new DAL(Program.config.DbaseConStrUbp);
+            else dalLocal = new DAL(Program.config.DbaseConStrAub);
+            dalSys = new DAL(Program.config.DbaseConStrSys);
         }
 
         public bool GenerateEndOfDay()
         {
             try
-            {
-                if (!dalSys.CheckIfReportDateExist(reportDate))
+            { DataTable dtDailyCapturedDates = null;
+                if (!dalLocal.SelectDailyCapturedByEntryDate(reportDate))
                 {
-                    logger.Error("Failed to get CheckIfReportDateExist. Error " + dalSys.ErrorMessage);
+                    Program.logger.Error("Failed to get DailyCapturedByEntryDate. Error " + dalLocal.ErrorMessage);
                     return false;
                 }
-                else
+                else dtDailyCapturedDates = dalLocal.TableResult;
+
+                if (dtDailyCapturedDates != null)
                 {
-                    if (Convert.ToInt32(dalSys.ObjectResult) > 0)
+                    foreach (DataRow rw in dtDailyCapturedDates.Rows)
                     {
-                        logger.Error("End of day report for " + reportDate + " has been generated already");
-                        return false;
+                        if (Convert.ToDateTime(rw["ApplicationDate"]).Date != Convert.ToDateTime(rw["EntryDate"]).Date) Program.logger.Info(string.Format("Late upload application date {0} entry date {1} total {2}", Convert.ToDateTime(rw["ApplicationDate"]).ToString("yyyy-MM-dd"), Convert.ToDateTime(rw["entryDate"]).ToString("yyyy-MM-dd"), rw["cnt"].ToString()));
+                        ProcessReport(Convert.ToDateTime(rw["ApplicationDate"]).ToString("yyyy-MM-dd"), Convert.ToDateTime(rw["entryDate"]).ToString("yyyy-MM-dd"));
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Program.logger.Error("Catched runtime error " + ex.Message);
+                return false;
+            }
 
+            return true;
+        }
 
-                if (!dalSys.SelectEOD_MemberRefNum_Sys(reportDate, config.BankID.ToString()))
+        public bool ProcessReport(string applicationDate, string entryDate)
+        {
+            try
+            {
+                DataTable dtEODdata = null;
+                DataTable dtMemberRefNum = null;
+                DataTable dtCardTxn = null;
+                //DataTable dtCardTxnSpoiled = null;
+                //DataTable dtCardTxnMagError = null;
+
+                //if (!dalSys.CheckIfReportDateExist(reportDate))
+                //{
+                //    Console.Write("Failed to get CheckIfReportDateExist. Error " + dalSys.ErrorMessage);
+                //    Program.logger.Error("Failed to get CheckIfReportDateExist. Error " + dalSys.ErrorMessage);
+                //    return false;
+                //}
+                //else
+                //{
+                //    if (Convert.ToInt32(dalSys.ObjectResult) > 0)
+                //    {
+                //        Console.Write("End of day report for " + reportDate + " has been generated already");
+                //        Program.logger.Error("End of day report for " + reportDate + " has been generated already");
+                //        return false;
+                //    }
+                //}
+
+                bool IsGetSpoiledAndMagCnt = true;               
+
+                //do not get spoiled and mag if appdate is equal to today
+                if (Convert.ToDateTime(applicationDate).Date == Convert.ToDateTime(dateToday).Date) IsGetSpoiledAndMagCnt = false;
+                else if (Convert.ToDateTime(applicationDate).Date != Convert.ToDateTime(entryDate).Date) IsGetSpoiledAndMagCnt = false; //do not get spoiled and mag if appdate is not equal to entryDate
+
+                if (!dalSys.SelectEOD_MemberRefNum_Sys(applicationDate, Program.config.BankID.ToString()))
                 {
-                    logger.Error("Failed to get EOD_MemberRefNum_Sys. Error " + dalSys.ErrorMessage);
+                    Program.logger.Error("Failed to get EOD_MemberRefNum_Sys. Error " + dalSys.ErrorMessage);
                     return false;
                 }
+
                 else dtMemberRefNum = dalSys.TableResult;
 
-                if (!dalLocal.SelectDCS_Card_Transaction_Spoiled_Bank(reportDate))
+                int totalIssued = 0;
+                //int totalReceived = 0;
+                //int totalMagError = 0;
+                //int totalSpoiled = 0;
+
+                if (IsGetSpoiledAndMagCnt)
                 {
-                    logger.Error("Failed to get DCS_Card_Transaction_Bank. Error " + dalLocal.ErrorMessage);
-                    return false;
+                    if (!dalLocal.SelectDCS_Card_Transaction_ByEntryDate(reportDate))
+                    {
+                        Program.logger.Error("Failed to get DCS_Card_Transaction_ByEntryDate. Error " + dalLocal.ErrorMessage);
+                        return false;
+                    }
+                    else dtCardTxn = dalLocal.TableResult;
+
+                    //if (!dalLocal.SelectDCS_Card_Transaction_Spoiled_Bank(reportDate))
+                    //{
+                    //    Program.logger.Error("Failed to get DCS_Card_Transaction_Bank. Error " + dalLocal.ErrorMessage);
+                    //    return false;
+                    //}
+                    //else dtCardTxnSpoiled = dalLocal.TableResult;
+
+                    //if (!dalLocal.SelectDCS_Card_Transaction_MagError_Bank(reportDate))
+                    //{
+                    //    Program.logger.Error("Failed to get DCS_Card_Transaction_Bank. Error " + dalLocal.ErrorMessage);
+                    //    return false;
+                    //}
+                    //else dtCardTxnMagError = dalLocal.TableResult;
                 }
-                else dtCardTxnSpoiled = dalLocal.TableResult;
 
-                if (!dalLocal.SelectDCS_Card_Transaction_MagError_Bank(reportDate))
+                if (!dalLocal.SelectEODData_Bank(Program.config.BankID.ToString(), reportDate))
                 {
-                    logger.Error("Failed to get DCS_Card_Transaction_Bank. Error " + dalLocal.ErrorMessage);
-                    return false;
-                }
-                else dtCardTxnMagError = dalLocal.TableResult;
 
-
-                if (!dalLocal.SelectEODData_Bank(config.BankID.ToString(), reportDate))
-                {
-                    logger.Error("Failed to get EODData_Bank. Error " + dalLocal.ErrorMessage);
+                    Program.logger.Error("Failed to get EODData_Bank. Error " + dalLocal.ErrorMessage);
                     return false;
                 }
                 else dtEODdata = dalLocal.TableResult;
+
+                Program.logger.Info(string.Format("Application date {0} eod data count {1}", applicationDate, dtEODdata.DefaultView.Count.ToString()));
 
                 var results = from table1 in dtEODdata.AsEnumerable()
                               join table2 in dtMemberRefNum.AsEnumerable() on table1["RefNum"] equals table2["refNum"]
@@ -115,38 +172,91 @@ namespace pagibigEODDataPusher
                                                                        && t.Application_Remarks.ToString().Contains("With Warranty")).Count()
                                            };
 
+                //int? balanceCard = null;
+
+                //foreach (var item in grpBranchWorkplaceId)
+                //{
+                //    totalIssued += item.totalCount;
+                //}
+
                 foreach (var item in grpBranchWorkplaceId)
                 {
-                    decimal expectedCash = Convert.ToDecimal((item.totalCount - item.ww) * 125);
+                    decimal expectedCash = Convert.ToDecimal((item.totalCount - item.ww) * Program.config.CardPrice);
+
+                    int receiveCard = 0;
                     int spoiledCard = 0;
                     int magError = 0;
-                    //check cardtxn table of equivalent branch
-                    if (dtCardTxnSpoiled.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower())).Length > 0) spoiledCard = Convert.ToInt32(dtCardTxnSpoiled.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower()))[0][1]);
-                    if (dtCardTxnMagError.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower())).Length > 0) magError = Convert.ToInt32(dtCardTxnMagError.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower()))[0][1]);
-                    //only workplaceid=1 should have spoiledcard value
-                    if (item.WorkplaceId==2)
-                    {
-                        if (grpBranchWorkplaceId.Where(t => t.reqBranch.ToString() == item.reqBranch.ToString() && Convert.ToInt32(t.WorkplaceId) == 1).Count() > 0) spoiledCard = 0;
-                    }
 
-                    if (!dalSys.Add_EodDeposits(reportDate, item.reqBranch, item.Branch, config.BankID.ToString(), item.WorkplaceId, 0, item.totalCount, item.ww, item.nw, spoiledCard, magError, 0, expectedCash, 0, expectedCash, 0))
+                    if (IsGetSpoiledAndMagCnt)
                     {
-                        logger.Error(string.Format("reqBranch {0} Branch {1} WorkplaceId {2}. Failed to add EodDeposits. Error {3}", item.reqBranch, item.Branch, item.WorkplaceId.ToString(), dalSys.ErrorMessage));
-                    }
-                    else
+                        //check cardtxn table of equivalent branch
+                        //if (dtCardTxnSpoiled.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower())).Length > 0) spoiledCard = Convert.ToInt32(dtCardTxnSpoiled.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower()))[0][1]);
+                        //if (dtCardTxnMagError.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower())).Length > 0) magError = Convert.ToInt32(dtCardTxnMagError.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower()))[0][1]);
+
+                        if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(),Program.config.CardReceivedTxnCode.Replace(",","','"), item.WorkplaceId.ToString())).Length > 0) receiveCard = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardReceivedTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
+                        if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardSpoiledTxnCode.Replace(",", "','"), item.WorkplaceId.ToString())).Length > 0) spoiledCard = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardSpoiledTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
+                        if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardMagErrorTxnCode.Replace(",", "','"), item.WorkplaceId.ToString())).Length > 0) magError = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardMagErrorTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
+
+                        //////only workplaceid=1 should have spoiledcard value
+                        //if (item.WorkplaceId == (short)Program.workplaceId.Deployment)
+                        //{
+                        //    if (grpBranchWorkplaceId.Where(t => t.reqBranch.ToString() == item.reqBranch.ToString() && Convert.ToInt32(t.WorkplaceId) == (short)Program.workplaceId.Onsite).Count() > 0)
+                        //    {
+                        //        //receiveCard = 0;
+                        //        //spoiledCard = 0;
+                        //        //magError = 0;
+                        //    }                                
+                        //}
+                    }                    
+
+                    if (!dalSys.Add_EodDeposits(reportDate, item.reqBranch.Trim(), item.Branch.Trim(), Program.config.BankID.ToString(), item.WorkplaceId.ToString(), receiveCard, item.totalCount, item.ww, item.nw, spoiledCard, magError, 0, expectedCash, 0, expectedCash, 0))
                     {
-                        if (!dalSys.Add_EODDeployed(Convert.ToInt32(dalSys.ObjectResult), item.WorkplaceId))
+                        Program.logger.Error(string.Format("reqBranch {0} Branch {1} WorkplaceId {2}. Failed to add EodDeposits. Error {3}", item.reqBranch, item.Branch, item.WorkplaceId.ToString(), dalSys.ErrorMessage));
+                    }                  
+                }
+
+
+                if (!dalSys.SelectEODDepositsByDateAndBank(Program.config.BankID.ToString(), reportDate))
+                {
+                    Program.logger.Error("Failed to get EODDepositsByDateAndBank. Error " + dalSys.ErrorMessage);
+                    return false;
+                }
+                else
+                {
+                    foreach (DataRow rw in dalSys.TableResult.Rows)
+                    {
+                        //get previous data
+                        //int prevBalanceCard = 0;
+                        int endBalanceCard = 0;
+                        //if (dalSys.SelectEODDepositsPreviousBalanceCard(Program.config.BankID.ToString(), rw["requesting_branchcode"].ToString().Trim(), Convert.ToDateTime(reportDate).AddDays(-1).ToString("yyyy-MM-dd")))
+                        //{
+                        //    //check first if dtResult have result
+                        //    if (dalSys.TableResult.DefaultView.Count > 0)
+                        //    {
+                        //        if (dalSys.TableResult.Select("WorkplaceID=" + (short)Program.workplaceId.Onsite).Length > 0) prevBalanceCard = Convert.ToInt32(dalSys.TableResult.Select("WorkplaceID=" + (short)Program.workplaceId.Onsite)[0][1]);
+                        //        else if (dalSys.TableResult.Select("WorkplaceID=" + (short)Program.workplaceId.Deployment).Length > 0) prevBalanceCard = Convert.ToInt32(dalSys.TableResult.Select("WorkplaceID=" + (short)Program.workplaceId.Deployment)[0][1]);
+                        //    }
+                        //}
+
+                        if (dalSys.Get_CardBalance(Program.config.BankID.ToString(), rw["requesting_branchcode"].ToString().Trim(), reportDate))
                         {
-                            logger.Error(string.Format("reqBranch {0} Branch {1} WorkplaceId {2}. Failed to add EODDeployed. Error {3}", item.reqBranch, item.Branch, item.WorkplaceId.ToString(), dalSys.ErrorMessage));
+                            endBalanceCard = (int)dalSys.TableResult.Rows[0]["EndBalance"];
+                        }
+
+                        //int curBalanceCard = prevBalanceCard - ((int)rw["Issued_Card"] + (int)rw["Spoiled_Card"] + (int)rw["MagError_Card"]) + (int)rw["Received_Card"];
+                        if (!dalSys.UpdateEODDepositsBalanceCard(reportDate, Program.config.BankID.ToString(), rw["requesting_branchcode"].ToString().Trim(), endBalanceCard))
+                        {
+                            Program.logger.Error("Failed to UpdateEODDepositsBalanceCard. Error " + dalSys.ErrorMessage);
+                            return false;
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                logger.Error("Catched runtime error " + ex.Message);
+                Program.logger.Error("Catched runtime error " + ex.Message);
                 return false;
-            }            
+            }
 
             return true;
         }

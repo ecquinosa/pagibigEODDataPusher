@@ -22,5 +22,11 @@ namespace pagibigEODDataPusher
         public string EmailRecipientsTo { get; set; }
         public string EmailRecipientsCC { get; set; }
 
+        public decimal CardPrice { get; set; }
+        public string CardReceivedTxnCode { get; set; }
+        public string CardSpoiledTxnCode { get; set; }
+        public string CardMagErrorTxnCode { get; set; }
+
+        public string PMSUrl { get; set; }
     }
 }

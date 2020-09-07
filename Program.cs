@@ -12,14 +12,20 @@ namespace pagibigEODDataPusher
 {
     class Program
     {
+        public static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
 
         private static string reportDateFile = AppDomain.CurrentDomain.BaseDirectory + "reportDate";
         private static string configFile = AppDomain.CurrentDomain.BaseDirectory + "config";
-        private static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
-        private static Config config;
+        public static Config config;
 
         private static DAL dalLocal = null;
         private static DAL dalSys = null;
+
+        enum Process : short
+        {
+            EOD = 1,
+            EmailReport
+        }
 
         public enum bankID
         {
@@ -33,46 +39,61 @@ namespace pagibigEODDataPusher
             Deployment
         }
 
+        public enum eodStatusType
+        {
+            Pending=1,
+            ForApproval,
+            ForApprovalRework,
+            Disapproved,
+            Approved
+        }
+
+        public enum consumableId
+        {
+            Ribbon=1,
+            OfficialReceipt,
+            CongratulatoryLetter
+        }   
+
+        //static void Main(string[] args)        
         static void Main()
         {
-            //string sourceFile = @"D:\ACCPAGIBIGPH3\accpagibigph3srv\AUB Missing KYC\dd.txt";
-            //string source = @"D:\ACCPAGIBIGPH3\AUB\PACKUPDATA\DONE\2020-06-29";
-            //string desti = @"D:\ACCPAGIBIGPH3\AUB\PACKUPDATA\FOR_TRANSFER\06292020_MISSINGFILES";
-            //foreach (string line in File.ReadAllLines(sourceFile))
-            //{
-            //    if (line.Trim() != "")
-            //    {
-            //        if (File.Exists(source + "\\" + line.Trim() + ".zip"))
-            //        {
-            //            File.Copy(source + "\\" + line.Trim() + ".zip", desti + "\\" + line.Trim() + ".zip");
-            //        }
-            //    }
-            //}
-
-            //return;
-
-
-            //logger.Info("Application started");
-            //Console.Write(DateTime.Now.DayOfWeek);
-            //Console.ReadLine();
-
-            //return;
+            logger.Info("Application started");
 
             //validatations
             Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Initializing...");
             if (!Init())
             {
-                Console.Write("Init error");
-                Console.ReadLine();                
+                CloseConnections();
+                logger.Info("Application closed");
+                System.Threading.Thread.Sleep(5000);
+                Environment.Exit(0);
                 return;
             }
-            //else
-            //{
-            //    Console.Write("init success");
-            //    Console.ReadLine(); 
-            //}
 
-            ProcessEODData();
+            ////string[] args = { "2", "5" };
+            ////validate arguments
+            //if (args == null)
+            //{
+            //    logger.Error("Args is null");
+            //    Environment.Exit(0);
+            //    return;
+            //}
+            ////else
+            ////{
+            ////    if (args.Length != 2)
+            ////    {
+            ////        logger.Error("Args is invalid");
+            ////        Environment.Exit(0);
+            ////        return;
+            ////    }
+            ////}
+
+            //if (Convert.ToInt16(args[0]) == (short)Process.EOD) ProcessEODData();
+            //else if (Convert.ToInt16(args[0]) == (short)Process.EmailReport) EmailReport();
+
+            //ProcessEODData();
+            EmailReport();
 
             CloseConnections();
 
@@ -86,13 +107,15 @@ namespace pagibigEODDataPusher
                 //check if another instance is running
                 if (System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location)).Count() > 1)
                 {
-                    logger.Info("Another instrance is running. Application will be closed.");
+                    //Console.WriteLine("Another instrance is running. Application will be closed.");
+                    logger.Error("Another instrance is running. Application will be closed.");
                     return false;
                 }
 
                 //check if file exists
                 if (!File.Exists(configFile))
                 {
+                    //Console.WriteLine("Config file is missing");
                     logger.Error("Config file is missing");
                     return false;
                 }
@@ -106,11 +129,12 @@ namespace pagibigEODDataPusher
                 }
                 catch (Exception ex)
                 {
+                    //Console.WriteLine("Error reading config file. Runtime catched error " + ex.Message);
                     logger.Error("Error reading config file. Runtime catched error " + ex.Message);
                     return false;
                 }
 
-                if (config.BankID == 1) dalLocal = new DAL(config.DbaseConStrUbp);
+                if (config.BankID == (short)bankID.UBP) dalLocal = new DAL(config.DbaseConStrUbp);
                 else dalLocal = new DAL(config.DbaseConStrAub);
                 
                 dalSys = new DAL(config.DbaseConStrSys);
@@ -118,6 +142,7 @@ namespace pagibigEODDataPusher
                 //check dbase connection                
                 if (!dalLocal.IsConnectionOK())
                 {
+                    //Console.WriteLine("Connection to local database failed. " + dalLocal.ErrorMessage);
                     logger.Error("Connection to local database failed. " + dalLocal.ErrorMessage);
                     return false;
                 }                
@@ -125,12 +150,14 @@ namespace pagibigEODDataPusher
                 //check dbase connection                
                 if (!dalLocal.IsConnectionOK())
                 {
+                    //Console.WriteLine("Connection to sys database failed. " + dalSys.ErrorMessage);
                     logger.Error("Connection to sys database failed. " + dalSys.ErrorMessage);
                     return false;
                 }
             }
             catch (Exception ex)
             {
+                //Console.WriteLine("Runtime catched error " + ex.Message);
                 logger.Error("Runtime catched error " + ex.Message);
                 return false;
             }
@@ -164,20 +191,128 @@ namespace pagibigEODDataPusher
 
         private static bool ProcessEODData()
         {
-            //string reportDate = System.IO.File.ReadAllText(reportDateFile);
-            string reportDate = DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd");
+            EOD eod = null;
 
-            EOD eod = new EOD(config, reportDate);
-            if (eod.GenerateEndOfDay())
+            //string reportDate = DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd");
+            string reportDate = "";
+            string dateToday = DateTime.Now.ToString("yyyy-MM-dd");            
+
+            if (File.Exists(reportDateFile))
             {
-                return true;
+                reportDate = System.IO.File.ReadAllText(reportDateFile);
+                dateToday = Convert.ToDateTime(reportDate).Date.AddDays(1).ToString("yyyy-MM-dd");
+
+                eod = new EOD(reportDate, dateToday);
+                if (!eod.GenerateEndOfDay()) logger.Error("Failed to generated end of day report for " + reportDate);
+                else
+                {
+                    eod = null;
+                    eod = new EOD(dateToday, dateToday);
+                    if (!eod.GenerateEndOfDay()) logger.Error("Failed to generated end of day report for " + dateToday);
+                }
+            }
+            else
+            {
+                DataTable dtLastTwoEntryDates = null;
+
+                if (!dalLocal.SelectLastTwoEntryDates())
+                {
+                    logger.Error("Failed to get last 2 dates of member table");
+                    return false;
+                }
+                else dtLastTwoEntryDates = dalLocal.TableResult;
+
+                if (Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0].ToString()).Date != DateTime.Now.Date)
+                {
+                    
+                    reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0]).ToString("yyyy-MM-dd");                    
+                    eod = new EOD(reportDate, dateToday);
+                    if (!eod.GenerateEndOfDay()) logger.Error("Failed to generate end of day report for " + reportDate);
+                    return false;
+                }
+                else
+                {
+                    reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[1][0]).ToString("yyyy-MM-dd");                    
+                    eod = new EOD(reportDate, dateToday);
+                    if (!eod.GenerateEndOfDay()) logger.Error("Failed to generated end of day report for " + reportDate);
+                    else
+                    {
+                        eod = null;
+                        eod = new EOD(dateToday, dateToday);
+                        if (!eod.GenerateEndOfDay()) logger.Error("Failed to generated end of day report for " + dateToday);
+                    }
+                }
             }
 
-            //Reports report = new Reports();
-            //report.GenerateReportv2(config,logger);
+            return true;
+        }
 
+        private static bool EmailReport()
+        {
+            string reportDate = "2020-09-03";
+            string dateToday = Convert.ToDateTime(reportDate).Date.AddDays(1).ToString("yyyy-MM-dd");
+
+            Reports report = new Reports(reportDate, dateToday);
+            report.GenerateReport1();
 
             return true;
+        }
+
+        private static void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)
+        {
+            // Get the subdirectories for the specified directory.
+            DirectoryInfo dir = new DirectoryInfo(sourceDirName);
+
+            if (!dir.Exists)
+            {
+                throw new DirectoryNotFoundException(
+                    "Source directory does not exist or could not be found: "
+                    + sourceDirName);
+            }
+
+            DirectoryInfo[] dirs = dir.GetDirectories();
+            // If the destination directory doesn't exist, create it.
+            if (!Directory.Exists(destDirName))
+            {
+                Directory.CreateDirectory(destDirName);
+            }
+
+            // Get the files in the directory and copy them to the new location.
+            FileInfo[] files = dir.GetFiles();
+            foreach (FileInfo file in files)
+            {
+                string temppath = Path.Combine(destDirName, file.Name);
+                file.CopyTo(temppath, false);
+            }
+
+            // If copying subdirectories, copy them and their contents to new location.
+            if (copySubDirs)
+            {
+                foreach (DirectoryInfo subdir in dirs)
+                {
+                    string temppath = Path.Combine(destDirName, subdir.Name);
+                    DirectoryCopy(subdir.FullName, temppath, copySubDirs);
+                }
+            }
+        }
+
+        private void TempCode()
+        {
+            //string sourceFile = @"D:\WORK\BAYAMBANG\dd.txt";
+            //string source = @"D:\WORK\BAYAMBANG\uploaded at plant conso\4";
+            //string desti = @"D:\WORK\BAYAMBANG\test";
+            //foreach (string line in File.ReadAllLines(sourceFile))
+            //{
+            //    if (line.Trim() != "")
+            //    {
+            //        if (Directory.Exists(source + "\\" + line.Trim()))
+            //        {
+            //            DirectoryCopy(source + "\\" + line.Trim(), desti + "\\" + line.Trim(),false);
+            //        }
+            //    }
+            //}
+
+            //return;
         }
 
 
