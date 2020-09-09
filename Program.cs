@@ -52,7 +52,10 @@ namespace pagibigEODDataPusher
         {
             Ribbon=1,
             OfficialReceipt,
-            CongratulatoryLetter
+            CongratulatoryLetter,
+            InternetDataLoad,
+            CardNew,
+            CardRecard
         }   
 
         //static void Main(string[] args)        
@@ -189,13 +192,25 @@ namespace pagibigEODDataPusher
             public int ww { get; set; }
         }
 
+        private static string reportDate = "";
+        private static string dateToday = DateTime.Now.ToString("yyyy-MM-dd");
+
         private static bool ProcessEODData()
         {
             EOD eod = null;
 
             //string reportDate = DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd");
-            string reportDate = "";
-            string dateToday = DateTime.Now.ToString("yyyy-MM-dd");            
+            //string reportDate = "";
+            //string dateToday = DateTime.Now.ToString("yyyy-MM-dd");
+
+
+            ////tempo
+            //reportDate = "2020-09-0";
+            //dateToday = Convert.ToDateTime(reportDate).AddDays(1).ToString("yyyy-MM-dd");
+            //eod = new EOD(reportDate, dateToday);
+            //if (!eod.GenerateEndOfDay()) logger.Error("Failed to generate end of day report for " + reportDate);
+            //return false;
+            ////tempo
 
             if (File.Exists(reportDateFile))
             {
@@ -224,15 +239,15 @@ namespace pagibigEODDataPusher
 
                 if (Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0].ToString()).Date != DateTime.Now.Date)
                 {
-                    
-                    reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0]).ToString("yyyy-MM-dd");                    
+
+                    reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0]).ToString("yyyy-MM-dd");
                     eod = new EOD(reportDate, dateToday);
                     if (!eod.GenerateEndOfDay()) logger.Error("Failed to generate end of day report for " + reportDate);
                     return false;
                 }
                 else
                 {
-                    reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[1][0]).ToString("yyyy-MM-dd");                    
+                    reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[1][0]).ToString("yyyy-MM-dd");
                     eod = new EOD(reportDate, dateToday);
                     if (!eod.GenerateEndOfDay()) logger.Error("Failed to generated end of day report for " + reportDate);
                     else
@@ -249,11 +264,58 @@ namespace pagibigEODDataPusher
 
         private static bool EmailReport()
         {
-            string reportDate = "2020-09-03";
-            string dateToday = Convert.ToDateTime(reportDate).Date.AddDays(1).ToString("yyyy-MM-dd");
+            short oldBankId = config.BankID;
 
-            Reports report = new Reports(reportDate, dateToday);
-            report.GenerateReport1();
+            if (File.Exists(reportDateFile))
+            {
+                reportDate = System.IO.File.ReadAllText(reportDateFile);
+                dateToday = Convert.ToDateTime(reportDate).Date.AddDays(1).ToString("yyyy-MM-dd");
+            }
+            else
+            {
+                DataTable dtLastTwoEntryDates = null;
+
+                if (!dalLocal.SelectLastTwoEntryDates())
+                {
+                    logger.Error("Failed to get last 2 dates of member table");
+                    return false;
+                }
+                else dtLastTwoEntryDates = dalLocal.TableResult;
+
+                if (Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0].ToString()).Date != DateTime.Now.Date) reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0]).ToString("yyyy-MM-dd");
+                else reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[1][0]).ToString("yyyy-MM-dd");
+            }
+
+            Reports report = null;
+
+            report = new Reports(reportDate, dateToday);
+            string outputFile1 = "";
+            string outputFile2 = "";
+            string outputFile3 = "";
+            string htmlBody1 = "";
+            string htmlBody2 = "";
+            string htmlBody3 = "";
+
+            DataTable dt1 = null;
+            DataTable dt2 = null;
+
+            report.GenerateReport(ref outputFile1, ref htmlBody1, ref dt1);
+            if (oldBankId == (short)bankID.UBP) config.BankID = (short)bankID.AUB;
+            else config.BankID = (short)bankID.UBP;
+
+            report = null;
+            report = new Reports(reportDate, dateToday);
+            report.GenerateReport(ref outputFile2, ref htmlBody2, ref dt2);
+
+            report.GenerateExcel(dt1, dt2, ref outputFile3, ref htmlBody3);
+
+            config.BankID = oldBankId;
+
+            SendMail sendMail = new SendMail();
+            string errMsg = "";            
+            if (sendMail.SendNotification(Program.config, htmlBody3 + "<br><br>" + htmlBody1 + "<br><br>" + htmlBody2, string.Format("Pag-Ibig Daily Monitoring Report - {0}", DateTime.Now.ToString("MM/dd/yyyy")), outputFile1, outputFile2, ref errMsg))
+                Program.logger.Info("Report successfully sent");
+            else Program.logger.Error("Failed to send report. Error " + errMsg);            
 
             return true;
         }

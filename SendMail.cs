@@ -8,7 +8,7 @@ namespace pagibigEODDataPusher
     class SendMail
     {
                
-        public bool SendNotification(Config config, string msgBody, string msgSubject, string fileAttachment, ref string errMsg)
+        public bool SendNotification(Config config, string msgBody, string msgSubject, string fileAttachment1, string fileAttachment2, ref string errMsg)
         {
             SmtpClient client = new SmtpClient();
            
@@ -28,8 +28,10 @@ namespace pagibigEODDataPusher
                 mm.DeliveryNotificationOptions = DeliveryNotificationOptions.OnFailure;
                 mm.IsBodyHtml = true;
 
-                Attachment attachment = new Attachment(fileAttachment, System.Net.Mime.MediaTypeNames.Application.Octet);                
-                mm.Attachments.Add(attachment);                
+                Attachment attachment1 = new Attachment(fileAttachment1, System.Net.Mime.MediaTypeNames.Application.Octet);
+                Attachment attachment2 = new Attachment(fileAttachment2, System.Net.Mime.MediaTypeNames.Application.Octet);
+                mm.Attachments.Add(attachment1);
+                mm.Attachments.Add(attachment2);
 
                 client.Send(mm);                
                 

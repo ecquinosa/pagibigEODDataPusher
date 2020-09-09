@@ -137,32 +137,10 @@ namespace pagibigEODDataPusher
             {
                 StringBuilder sb = new StringBuilder();
 
-                //original script
-                //sb.Append(string.Format("SELECT '{0}' AS entryDate, dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, {1} As BankID, 0 As WorkplaceID, NULL, 0, COUNT_BIG(*) AS totalCnt, ", reportDate, bankID));
-                //sb.Append("COUNT_BIG(CASE WHEN Application_Remarks LIKE '%With Warranty%' THEN 1 END) AS ww, COUNT_BIG(CASE WHEN Application_Remarks LIKE '%Non-Warranty%' THEN 1 END) AS nw, 0 As Spoiled, 0 As MagError, ");
-                //sb.Append("0 As BalanceCard, 0 As Expected, 0 As Deposited, 0 As ByDSA, 0 As ByBank, 0 As Variance, NULL As DepositoryBankID, 1, 0, 0, GETDATE(), GETDATE(), RefNum ");
-                //sb.Append("FROM dbo.tbl_Member INNER JOIN ");
-                //sb.Append("tbl_branch on tbl_branch.requesting_branchcode = dbo.tbl_Member.requesting_branchcode ");
-                //sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59'", reportDate));
-                //sb.Append("GROUP BY dbo.tbl_Member.requesting_branchcode, tbl_branch.Branch ");
-                //sb.Append("ORDER BY CAST(dbo.tbl_Member.EntryDate AS date");
-
-
-                ////2nd revision
-                //sb.Append(string.Format("SELECT dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, {1} As BankID, 0 As WorkplaceID, 0 AS totalCnt, ", reportDate, bankID));
-                //sb.Append("0 AS ww, 0 AS nw, 0 As Expected, 0 As ByDSA, 0 As ByBank, RefNum, Application_Remarks ");
-                //sb.Append("FROM dbo.tbl_Member INNER JOIN ");
-                //sb.Append("tbl_branch on tbl_branch.requesting_branchcode = dbo.tbl_Member.requesting_branchcode ");
-                //sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59'", reportDate));
-
                 sb.Append(string.Format("SELECT dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, RefNum, Application_Remarks ", reportDate, bankID));
                 sb.Append("FROM dbo.tbl_Member INNER JOIN ");
                 sb.Append("tbl_branch on tbl_branch.requesting_branchcode = dbo.tbl_Member.requesting_branchcode ");
-                sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59'", reportDate));
-                //sb.Append(string.Format("WHERE dbo.tbl_Member.ApplicationDate BETWEEN '{0}' AND '{0}'", reportDate));
-
-                //sb.Append("GROUP BY dbo.tbl_Member.requesting_branchcode, tbl_branch.Branch ");
-                //sb.Append("ORDER BY CAST(dbo.tbl_Member.EntryDate AS date");
+                sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59'", reportDate));                
 
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);
@@ -259,7 +237,7 @@ namespace pagibigEODDataPusher
 
                 sb.Append(string.Format("SELECT TOP 1 Balance_Card FROM dbo.tbl_DCS_EODDeposits"));
                 //sb.Append(string.Format(" WHERE Report_Date BETWEEN '{0}' AND '{1}' AND BankID={2} AND WorkplaceID={3} AND requesting_branchcode='{4}'", Convert.ToDateTime(reportDate).AddDays(-30).ToString("yyyy-MM-dd"), reportDate, bankId, 1, reqBranch));
-                sb.Append(string.Format(" WHERE Report_Date BETWEEN '{0}' AND '{1}' AND BankID={2} AND requesting_branchcode='{3}' and requesting_branchcode NOT LIKE '%_b'", Convert.ToDateTime(reportDate).AddDays(-30).ToString("yyyy-MM-dd"), reportDate, bankId, reqBranch));
+                sb.Append(string.Format(" WHERE Report_Date BETWEEN '{0}' AND '{1}' AND BankID={2} AND requesting_branchcode='{3}'", Convert.ToDateTime(reportDate).AddDays(-30).ToString("yyyy-MM-dd"), reportDate, bankId, reqBranch));
                 sb.Append(string.Format(" ORDER BY Report_Date DESC"));
 
                 OpenConnection();
@@ -283,7 +261,7 @@ namespace pagibigEODDataPusher
                 StringBuilder sb = new StringBuilder();                
 
                 sb.Append(string.Format("SELECT DISTINCT requesting_branchcode FROM dbo.tbl_DCS_EODDeposits "));
-                sb.Append(string.Format(" WHERE Report_Date BETWEEN '{0}' AND '{1}' AND BankID={2} and requesting_branchcode NOT LIKE '%_b'", startDate, endDate, bankId));
+                sb.Append(string.Format(" WHERE Report_Date BETWEEN '{0}' AND '{1}' AND BankID={2}", startDate, endDate, bankId));
            
 
                 OpenConnection();
@@ -420,8 +398,8 @@ namespace pagibigEODDataPusher
                 sb.Append("dbo.tbl_DCS_DepositTransaction ON dbo.tbl_DCS_EODRefDepositTxn.DepositTransactionID = dbo.tbl_DCS_DepositTransaction.Id LEFT OUTER JOIN  ");
                 sb.Append("dbo.tbl_DCS_DepositBankAccount ON tbl_DCS_DepositBankAccount.Id = dbo.tbl_DCS_EODDeposits.DepositoryBankID LEFT OUTER JOIN  ");
                 sb.Append("dbo.tbl_EODStatusType ON dbo.tbl_EODStatusType.Id = tbl_DCS_EODDeposits.StatusTypeId  ");
-                //sb.Append(string.Format("WHERE dbo.tbl_DCS_EODDeposits.Report_Date BETWEEN '{0}' AND '{1}' ", startDate, endDate));
-                sb.Append(string.Format("WHERE dbo.tbl_DCS_EODDeposits.BankID = {0} AND dbo.tbl_DCS_EODDeposits.Report_Date BETWEEN '{1}' AND '{2}' ",bankId, "2020-08-18", "2020-08-18"));
+                sb.Append(string.Format("WHERE dbo.tbl_DCS_EODDeposits.BankID = {0} AND dbo.tbl_DCS_EODDeposits.Report_Date BETWEEN '{1}' AND '{2}' ", bankId, startDate, endDate));
+                //sb.Append(string.Format("WHERE dbo.tbl_DCS_EODDeposits.BankID = {0} AND dbo.tbl_DCS_EODDeposits.Report_Date BETWEEN '{1}' AND '{2}' ",bankId, "2020-08-18", "2020-08-18"));
 
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);
@@ -437,14 +415,15 @@ namespace pagibigEODDataPusher
             }
         }
 
-        public bool Get_CardBalance(string bankId, string reqBranch, string reportDate)
+        public bool Get_ConsumablesBalance(string bankId, string reqBranch, string reportDate, Program.consumableId consumableId)
         {
             try
             {
                 OpenConnection();
-                cmd = new SqlCommand("spGet_CardBalance", con);
+                cmd = new SqlCommand("spGet_ConsumablesBalance", con);
                 cmd.Parameters.AddWithValue("bankId", bankId);
-                cmd.Parameters.AddWithValue("reqBranch", reqBranch);                
+                cmd.Parameters.AddWithValue("reqBranch", reqBranch);
+                cmd.Parameters.AddWithValue("consumablesId", (int)consumableId);                
                 cmd.Parameters.AddWithValue("endDate", reportDate);
 
                 FillDataAdapter(CommandType.StoredProcedure);
@@ -459,53 +438,53 @@ namespace pagibigEODDataPusher
         }
 
 
-        public bool SelectDCS_Card_Transaction_Spoiled_Bank(string reportDate)
-        {
-            try
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append("select BranchCode, SUM(Quantity) As Spoiled from tbl_DCS_Card_Transaction ");
-                //sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
-                sb.Append(string.Format("where TransactionTypeID IN ('03') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
-                sb.Append("GROUP BY BranchCode");
+        //public bool SelectDCS_Card_Transaction_Spoiled_Bank(string reportDate)
+        //{
+        //    try
+        //    {
+        //        StringBuilder sb = new StringBuilder();
+        //        sb.Append("select BranchCode, SUM(Quantity) As Spoiled from tbl_DCS_Card_Transaction ");
+        //        //sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
+        //        sb.Append(string.Format("where TransactionTypeID IN ('03') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
+        //        sb.Append("GROUP BY BranchCode");
 
-                OpenConnection();
-                cmd = new SqlCommand(sb.ToString(), con);
+        //        OpenConnection();
+        //        cmd = new SqlCommand(sb.ToString(), con);
 
-                FillDataAdapter(CommandType.Text);
+        //        FillDataAdapter(CommandType.Text);
 
-                return true;
-            }
-            catch (Exception ex)
-            {
-                strErrorMessage = ex.Message;
-                return false;
-            }
-        }
+        //        return true;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        strErrorMessage = ex.Message;
+        //        return false;
+        //    }
+        //}
 
-        public bool SelectDCS_Card_Transaction_MagError_Bank(string reportDate)
-        {
-            try
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append("select BranchCode, SUM(Quantity) As Spoiled from tbl_DCS_Card_Transaction ");
-                //sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
-                sb.Append(string.Format("where TransactionTypeID IN ('13') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
-                sb.Append("GROUP BY BranchCode");
+        //public bool SelectDCS_Card_Transaction_MagError_Bank(string reportDate)
+        //{
+        //    try
+        //    {
+        //        StringBuilder sb = new StringBuilder();
+        //        sb.Append("select BranchCode, SUM(Quantity) As Spoiled from tbl_DCS_Card_Transaction ");
+        //        //sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
+        //        sb.Append(string.Format("where TransactionTypeID IN ('13') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
+        //        sb.Append("GROUP BY BranchCode");
 
-                OpenConnection();
-                cmd = new SqlCommand(sb.ToString(), con);
+        //        OpenConnection();
+        //        cmd = new SqlCommand(sb.ToString(), con);
 
-                FillDataAdapter(CommandType.Text);
+        //        FillDataAdapter(CommandType.Text);
 
-                return true;
-            }
-            catch (Exception ex)
-            {
-                strErrorMessage = ex.Message;
-                return false;
-            }
-        }
+        //        return true;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        strErrorMessage = ex.Message;
+        //        return false;
+        //    }
+        //}
 
         public bool SelectDailyMonitoringReport(string bankId, string startDate, string endDate)
         {
@@ -518,11 +497,8 @@ namespace pagibigEODDataPusher
                 sb.Append("SUM(WWarranty_Card) as WWarranty_Card, SUM(NWarranty_Card) as NWarranty_Card, SUM(Spoiled_Card) as Spoiled_Card, SUM(MagError_Card) as MagError_Card,  ");
                 sb.Append("SUM(Balance_Card) as Balance_Card, SUM(Expected_Cash) as Expected_Cash, SUM(CASE WHEN StatusTypeID = 5 THEN Deposited_Cash ELSE 0 END) as Deposited_Cash,  ");
                 sb.Append("SUM(CASE WHEN StatusTypeID = 5 THEN ByDSA_Cash ELSE 0 END) as ByDSA_Cash, SUM(CASE WHEN StatusTypeID = 5 THEN ByBank_Cash ELSE 0 END) as ByBank_Cash, (SUM(Expected_Cash)-SUM(CASE WHEN StatusTypeID = 5 THEN Deposited_Cash ELSE 0 END)) as Variance, 0 as ConsumablesUsedRibbon, 0 as ConsumablesUsedOR, 0 as ConsumablesUsedCL ");
-                sb.Append("FROM dbo.tbl_DCS_EODDeposits ");
-                //sb.Append(string.Format("WHERE Report_Date BETWEEN '2020-01-01' AND '{0}' ", reportDate));
-                //sb.Append(string.Format("WHERE Report_Date BETWEEN '2020-07-02' AND '{0}' AND BankID = 1", reportDate));
-                sb.Append(string.Format("WHERE Report_Date BETWEEN '{0}' AND '{1}' AND BankID = {2}", startDate, endDate, bankId));
-                //sb.Append(string.Format("where id > 443 and requesting_branchcode NOT LIKE '%_b' AND BankID = {0} ", bankId));
+                sb.Append("FROM dbo.tbl_DCS_EODDeposits ");                
+                sb.Append(string.Format("WHERE Report_Date BETWEEN '{0}' AND '{1}' AND BankID = {2}", startDate, endDate, bankId));                
                 sb.Append("GROUP BY MONTH(Report_Date), WorkplaceID ");                
 
                 OpenConnection();
@@ -726,7 +702,7 @@ namespace pagibigEODDataPusher
                     sbUpdate.Append("UPDATE dbo.tbl_DCS_EODDeposits");
                     //sbUpdate.Append(" SET Issued_Card=@Issued_Card, WWarranty_Card=@WWarranty_Card, NWarranty_Card=@NWarranty_Card, Balance_Card=@Balance_Card, Expected_Cash=@Expected_Cash, ");
                     sbUpdate.Append(" SET Issued_Card=@Issued_Card, WWarranty_Card=@WWarranty_Card, NWarranty_Card=@NWarranty_Card, Expected_Cash=@Expected_Cash, ");
-                    sbUpdate.Append(" ByDSA_Cash=@ByDSA_Cash, ByBank_Cash=@ByBank_Cash, Variance=@Expected_Cash-Deposited_Cash, LastUpdated_Date=GETDATE() ");
+                    sbUpdate.Append(" ByDSA_Cash=@ByDSA_Cash, ByBank_Cash=@ByBank_Cash, Variance=@Expected_Cash-Deposited_Cash, Received_Card = @Received_Card, Spoiled_Card = @Spoiled_Card, MagError_Card = @MagError_Card, LastUpdated_Date=GETDATE() ");
                     sbUpdate.Append(" WHERE ID = @ID ");
                 }
 
@@ -774,6 +750,9 @@ namespace pagibigEODDataPusher
                     cmd.Parameters.AddWithValue("Expected_Cash", Expected_Cash);                    
                     cmd.Parameters.AddWithValue("ByDSA_Cash", ByDSA_Cash);
                     cmd.Parameters.AddWithValue("ByBank_Cash", ByBank_Cash);
+                    cmd.Parameters.AddWithValue("Received_Card", Received_Card);
+                    cmd.Parameters.AddWithValue("Spoiled_Card", Spoiled_Card);
+                    cmd.Parameters.AddWithValue("MagError_Card", MagError_Card);
                     //cmd.Parameters.AddWithValue("Variance", Expected_Cash - Deposited_Cash);
 
                     ExecuteNonQuery(CommandType.Text);

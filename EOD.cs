@@ -91,8 +91,8 @@ namespace pagibigEODDataPusher
                 bool IsGetSpoiledAndMagCnt = true;               
 
                 //do not get spoiled and mag if appdate is equal to today
-                if (Convert.ToDateTime(applicationDate).Date == Convert.ToDateTime(dateToday).Date) IsGetSpoiledAndMagCnt = false;
-                else if (Convert.ToDateTime(applicationDate).Date != Convert.ToDateTime(entryDate).Date) IsGetSpoiledAndMagCnt = false; //do not get spoiled and mag if appdate is not equal to entryDate
+                //if (Convert.ToDateTime(applicationDate).Date == Convert.ToDateTime(dateToday).Date) IsGetSpoiledAndMagCnt = false;
+                if (Convert.ToDateTime(applicationDate).Date != Convert.ToDateTime(entryDate).Date) IsGetSpoiledAndMagCnt = false; //do not get spoiled and mag if appdate is not equal to entryDate
 
                 if (!dalSys.SelectEOD_MemberRefNum_Sys(applicationDate, Program.config.BankID.ToString()))
                 {
@@ -238,7 +238,7 @@ namespace pagibigEODDataPusher
                         //    }
                         //}
 
-                        if (dalSys.Get_CardBalance(Program.config.BankID.ToString(), rw["requesting_branchcode"].ToString().Trim(), reportDate))
+                        if (dalSys.Get_ConsumablesBalance(Program.config.BankID.ToString(), rw["requesting_branchcode"].ToString().Trim(), reportDate, Program.consumableId.CardNew))
                         {
                             endBalanceCard = (int)dalSys.TableResult.Rows[0]["EndBalance"];
                         }

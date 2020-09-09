@@ -76,7 +76,7 @@ namespace pagibigEODDataPusher
             else dtData = dal.TableResult;
 
             //if (!dal.SelectDailyMonitoringReport(Program.config.BankID.ToString(), mtdStartDate, Convert.ToDateTime(reportDate).AddDays(-1).ToString("yyyy-MM-dd")))
-                if (!dal.SelectDailyMonitoringReport(Program.config.BankID.ToString(), mtdStartDate, Convert.ToDateTime(reportDate).AddDays(-1).ToString("yyyy-MM-dd")))
+            if (!dal.SelectDailyMonitoringReport(Program.config.BankID.ToString(), mtdStartDate, reportDate))
             {
                 Program.logger.Error("Failed to get data in SelectDailyMonitoringReport. Error " + dal.ErrorMessage);
             }
@@ -94,13 +94,14 @@ namespace pagibigEODDataPusher
             }
             else dtConsumablesOutData = dal.TableResult;
 
-            if (!dal.SelectConsumables(Program.config.BankID.ToString(), mtdStartDate, Convert.ToDateTime(reportDate).AddDays(-1).ToString("yyyy-MM-dd"), "2"))
+            //if (!dal.SelectConsumables(Program.config.BankID.ToString(), mtdStartDate, Convert.ToDateTime(reportDate).AddDays(-1).ToString("yyyy-MM-dd"), "2"))
+            if (!dal.SelectConsumables(Program.config.BankID.ToString(), mtdStartDate, reportDate, "2"))
             {
                 Program.logger.Error("Failed to get data in Consumables In. Error " + dal.ErrorMessage);
             }
             else dtConsumablesOutDataPrev = dal.TableResult;
 
-            if (!dal.SelectDailyMonitoringReport2(Program.config.BankID.ToString(), dateToday, dateToday))
+            if (!dal.SelectDailyMonitoringReport2(Program.config.BankID.ToString(), reportDate, reportDate))
             {
                 Program.logger.Error("Failed to get data in DailyMonitoringReport2. Error " + dal.ErrorMessage);
             }
@@ -218,7 +219,7 @@ namespace pagibigEODDataPusher
             return value;
         }
 
-        public void GenerateReport1()
+        public void GenerateReport(ref string outputFile, ref string htmlBody, ref DataTable dtOut)
         {
             try
             {
@@ -232,7 +233,7 @@ namespace pagibigEODDataPusher
 
                 foreach (DataRow rw in dtInt.Rows)
                 {
-                    int value = 0;                    
+                    int value = 0;
                     short prevMonth = Convert.ToInt16(Convert.ToDateTime(reportDate).Month);
 
                     switch ((short)rw["Code"])
@@ -250,7 +251,8 @@ namespace pagibigEODDataPusher
                         case 9:
                             int balanceCard = 0;
                             string startDate = string.Format("{0}-{1}-{2}", DateTime.Now.Year, prevMonth.ToString().PadLeft(2, '0'), "01");
-                            string endDate = string.Format("{0}-{1}-{2}", DateTime.Now.Year, prevMonth.ToString().PadLeft(2, '0'), DateTime.DaysInMonth(DateTime.Now.Year, prevMonth));
+                            //string endDate = string.Format("{0}-{1}-{2}", DateTime.Now.Year, prevMonth.ToString().PadLeft(2, '0'), DateTime.DaysInMonth(DateTime.Now.Year, prevMonth));
+                            string endDate = reportDate;
 
                             if (dal.SelectEODDepositsDistinctBranchByDateAndBankId(Program.config.BankID.ToString(), startDate, endDate))
                             {
@@ -431,7 +433,11 @@ namespace pagibigEODDataPusher
                     if (!Directory.Exists(dailyReportRepo)) Directory.CreateDirectory(dailyReportRepo);
                     if (!Directory.Exists(processedRepo)) Directory.CreateDirectory(processedRepo);
 
-                    string filename = "PagibigDailyMonitoringReport_" + Convert.ToDateTime(DateTime.Now).ToString("yyyyMMdd") + ".xlsx";
+                    string bankCode = "UBP";
+                    if (Program.config.BankID == (short)Program.bankID.AUB) bankCode = "AUB";
+
+                    string filename = "PagibigDailyMonitoringReport_" + bankCode + "_" + Convert.ToDateTime(DateTime.Now).ToString("yyyyMMdd") + ".xlsx";
+                    
                     if (File.Exists(Path.Combine(dailyReportRepo, filename)))
                     {
 
@@ -451,172 +457,61 @@ namespace pagibigEODDataPusher
                         }
                     }
 
+                    dtOut = dtReport;
+
                     FileInfo newFile = new FileInfo(System.IO.Path.Combine(Application.StartupPath, "DailyReport\\" + filename));
+                    outputFile = newFile.FullName;
 
                     ExcelRange rng = null;
 
                     using (ExcelPackage xlPck = new ExcelPackage(newFile))
                     {
-                        ExcelWorksheet ws = xlPck.Workbook.Worksheets.Add("report1-" + DateTime.Now.ToString("yyyyMMdd"));
+                        ExcelWorksheet ws = xlPck.Workbook.Worksheets.Add("report1-" + DateTime.Now.ToString("yyyyMMdd_hhmmss"));
                         ws.View.ShowGridLines = false;
 
-                        rng = ws.Cells["B7:O32"];
-                        rng.Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);
+                        if (Program.config.BankID == (short)Program.bankID.UBP) GenerateDashboardSheet("UNION BANK OF THE PHILIPPINES", ws, dtReport, ref htmlBody);
+                        else if (Program.config.BankID == (short)Program.bankID.AUB) GenerateDashboardSheet("ASIA UNITED BANK", ws, dtReport, ref htmlBody);                                                     
 
-                        //DataTable unq = new DataTable();
-                        //unq = GRDatatable.DefaultView.ToTable(true, "Branch");
-
-                        //ExcelRange rng = ws.Cells["A1:F1"];
-                        //rng.Merge = true;
-                        //rng.Style.WrapText = true;                
-                        //rng.Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
-                        //rng.Style.VerticalAlignment = OfficeOpenXml.Style.ExcelVerticalAlignment.Center;
-                        //rng.Value = "RELEASED CARDS ";
-                        //rng.Style.Font.Size = 14;
-                        //rng.Style.Font.Bold = true;
-                        //rng.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
-                        //rng.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.Black);
-                        //rng.Style.Font.Color.SetColor(Color.White);
-                        //rng.AutoFitColumns();      
-
-                        short colDividerWidth = 3;
-                        ws.Column(1).Width = colDividerWidth;
-
-                        ws.Column(2).Width = 24;//40;
-
-                        ws.Column(3).Width = 10;//15;
-                        ws.Column(4).Width = 10;//15;
-                        //ws.Column(5).Width = colDividerWidth;
-
-                        //months
-                        int monthCount = 5 + (DateTime.Now.Month-1);
-                        for (short i = 5; i <= monthCount; i++) ws.Column(i).Width = 10;//15;
-
-                        ws.Column(monthCount + 1).Width = 10;//20;
-                        ws.Column(monthCount + 2).Width = 10;//20;
+                        short colDividerWidth = 3;                        
 
                         int intColBase = 2;
                         int intCol = intColBase;
-                        int intRow = 2;
-
-                        if(Program.config.BankID==(short)Program.bankID.UBP) PopulateCell(ref ws, "UNION BANK OF THE PHILIPPINES", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false,"",false);
-                        else if (Program.config.BankID == (short)Program.bankID.AUB) PopulateCell(ref ws, "ASIA UNITED BANK", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
-                        PopulateCell(ref ws, "PAG-IBIG DAILY MONITORING REPORT AS OF " + DateTime.Now.ToString("MMMM dd, yyyy"), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
-                        PopulateCell_Url(ref ws, "Click here to view the Dashboard in PMS " + Program.config.PMSUrl, ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
-                        //rng.Style.Font.Color.SetColor(Color.White);
-
-                        intRow += 1;
-
-                        //PopulateCell(ref ws, "SUMMARY", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
-                        //PopulateCell(ref ws, "", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
-
-                        PopulateHeaders(ref ws, ref intRow, ref intCol);
-
-                        foreach (DataRow rw in dtReport.Rows)
-                        {
-                            intCol = intColBase;
-                            InsertData(ref ws, ref intRow, ref intCol, rw);
-                            switch (Convert.ToInt32(rw["Code"]))
-                            {
-                                case 2:
-                                    intCol = intColBase;
-                                    PopulateCell(ref ws, "On-site", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
-                                    break;
-                                case 4:
-                                    intCol = intColBase;
-                                    PopulateCell(ref ws, "Deployed", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
-                                    break;
-                                case 9:
-                                    intRow += 1;
-                                    intCol = intColBase;
-                                    PopulateCell(ref ws, "CASH", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
-                                    break;
-                                case 16:
-                                    intRow += 1;
-                                    intCol = intColBase;
-                                    PopulateCell(ref ws, "CONSUMABLES", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
-                                    break;
-                            }
-                        }
-
-                        StringBuilder sbHtml = new StringBuilder();
-
-                        sbHtml.Append("<TABLE style=\"font-size:14px; width: 100%;\">");
-
-                        for (short iRow = 2; iRow <= 32;iRow++)
-                        {
-                            sbHtml.Append("<TR>");
-
-                            switch (iRow)
-                            {
-                                case 2:
-                                case 3:
-                                case 4:
-                                case 5:
-                                case 18:
-                                case 27:
-                                    for (short iCol = 2; iCol <= 15; iCol++)
-                                    {
-                                        if (ws.Cells[iRow, iCol].Value == null) sbHtml.Append(string.Format("<TD colspan=14>{0}</TD>", " "));
-                                        else sbHtml.Append(string.Format("<TD colspan=14>{0}</TD>", ws.Cells[iRow, iCol].Value.ToString()));
-                                    }                                    
-                                    break;
-                                default:
-                                    for (short iCol = 2; iCol <= 15; iCol++)
-                                    {
-                                        string textAlignCenter = "";
-                                        string textWidth = "";
-                                        if (iCol == 2) textWidth = "width: 20%;";
-                                        else
-                                        {
-                                            textAlignCenter = "text-align:center;";
-                                            textWidth = "width: 7%;";
-                                        }
-                                        if (ws.Cells[iRow, iCol].Value == null) sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse; {0}{1}\">{2}</TD>", textAlignCenter, textWidth, " "));
-                                        else sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse; {0}{1}\">{2}</TD>", textAlignCenter, textWidth, ws.Cells[iRow, iCol].Value.ToString()));
-                                    }
-                                    break;
-
-                            }                            
-                            sbHtml.Append("</TR>");
-                        }
-
-                        sbHtml.Append("</TABLE>");
+                        int intRow = 2;                       
 
                         //report 2
                         ws = null;
                         ws = xlPck.Workbook.Worksheets.Add("report2-" + DateTime.Now.ToString("yyyyMMdd"));
                         ws.View.ShowGridLines = false;
 
-                        rng = ws.Cells["B5:D5"];                        
-                        rng.Style.Border.Top.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;                                                
+                        rng = ws.Cells["B5:D5"];
+                        rng.Style.Border.Top.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Left.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Right.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Merge = true;
 
-                        rng = ws.Cells["E5:K5"];                        
+                        rng = ws.Cells["E5:K5"];
                         rng.Style.Border.Top.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Left.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Right.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
-                        rng.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;                        
-                        rng.Merge = true;                        
+                        rng.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
+                        rng.Merge = true;
                         //rng.Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
 
-                        rng = ws.Cells["L5:R5"];                        
+                        rng = ws.Cells["L5:R5"];
                         rng.Style.Border.Top.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Left.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Right.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
-                        rng.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;                        
+                        rng.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Merge = true;
                         //ws.Cells[rng.Address].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
                         //rng.Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
 
-                        rng = ws.Cells["S5:U5"];                        
+                        rng = ws.Cells["S5:U5"];
                         rng.Style.Border.Top.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Left.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Right.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
-                        rng.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;                        
+                        rng.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Merge = true;
                         //ws.Cells[rng.Address].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
 
@@ -628,14 +523,14 @@ namespace pagibigEODDataPusher
                         ws.Column(3).Width = 7; //15;
                         ws.Column(4).Width = 12;//15;
 
-                        for (short i = 5; i <= 21; i++) ws.Column(i).Width = 15;                        
-                        
+                        for (short i = 5; i <= 21; i++) ws.Column(i).Width = 15;
+
                         intCol = intColBase;
                         intRow = 2;
 
                         if (Program.config.BankID == (short)Program.bankID.UBP) PopulateCell(ref ws, "UNION BANK OF THE PHILIPPINES", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
                         else if (Program.config.BankID == (short)Program.bankID.AUB) PopulateCell(ref ws, "ASIA UNITED BANK", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
-                        PopulateCell(ref ws, "PAG-IBIG DAILY MONITORING REPORT AS OF " + DateTime.Now.ToString("MMMM dd, yyyy"), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
+                        PopulateCell(ref ws, "PAG-IBIG DAILY MONITORING REPORT AS OF " + Convert.ToDateTime(reportDate).ToString("MMMM dd, yyyy"), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
                         intRow += 1;
 
                         intCol = 5;
@@ -648,10 +543,10 @@ namespace pagibigEODDataPusher
                         PopulateCell(ref ws, "CONSUMABLES", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, false, false, "", false);
 
                         intCol = intColBase;
-                        
+
                         PopulateCell(ref ws, "", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
 
-                        PopulateHeadersReport2(ref ws, ref intRow, ref intCol);                        
+                        PopulateHeadersReport2(ref ws, ref intRow, ref intCol);
 
                         foreach (DataRow rw in dtReport2.Rows)
                         {
@@ -675,7 +570,7 @@ namespace pagibigEODDataPusher
                                     case 17:
                                     case 18:
                                     case 19:
-                                        PopulateCell(ref ws, Convert.ToInt64(rw[i]), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false,true, "#,##0;(#,##0)",true);
+                                        PopulateCell(ref ws, Convert.ToInt64(rw[i]), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true, "#,##0;(#,##0)", true);
                                         break;
                                     case 10:
                                     case 11:
@@ -684,30 +579,31 @@ namespace pagibigEODDataPusher
                                     case 14:
                                         PopulateCell(ref ws, Convert.ToDecimal(rw[i]), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Right, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true, "#,##0.00;(#,##0.00)", true);
                                         break;
-                                    default:                                        
+                                    default:
                                         PopulateCell(ref ws, rw[i].ToString(), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true, "", true);
                                         break;
-                                }    
-                                
+                                }
+
                             }
                             intRow += 1;
                             //PopulateCell(ref ws, Convert.ToInt64(rw[dtReport2.Columns.Count - 1]), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, true,true, "#,##0;(#,##0)",true);                            
                         }
-                        
+
 
                         xlPck.Save();
 
-                        SendMail sendMail = new SendMail();
-                        string errMsg = "";
-                        //if (sendMail.SendNotification(Program.config, "[THIS IS AN AUTOMATED MESSAGE - PLEASE DO NOT REPLY DIRECTLY TO THIS EMAIL]", "TEST", newFile.FullName, ref errMsg))
-                        if (sendMail.SendNotification(Program.config, sbHtml.ToString(), "Pag-ibig Daily Monitoring Report - " + DateTime.Now.ToShortDateString(), newFile.FullName, ref errMsg))
-                        {
-                            Program.logger.Info("Report successfully sent");
-                        }
-                        else
-                        {
-                            Program.logger.Error("Failed to send report. Error " + errMsg);
-                        }
+                        //SendMail sendMail = new SendMail();
+                        //string errMsg = "";
+                        ////if (sendMail.SendNotification(Program.config, "[THIS IS AN AUTOMATED MESSAGE - PLEASE DO NOT REPLY DIRECTLY TO THIS EMAIL]", "TEST", newFile.FullName, ref errMsg))
+                        ////if (sendMail.SendNotification(Program.config, sbHtml.ToString(), string.Format("Pag-ibig Daily Monitoring Report x {0} - {1}", bankCode, DateTime.Now.ToString("MM/dd/yyyy")), newFile.FullName, ref errMsg))
+                        //if (sendMail.SendNotification(Program.config, sbHtml.ToString(), string.Format("Pag-ibig Daily Monitoring Report x {0} - {1}", bankCode, reportDate), newFile.FullName, ref errMsg))
+                        //{
+                        //    Program.logger.Info("Report successfully sent");
+                        //}
+                        //else
+                        //{
+                        //    Program.logger.Error("Failed to send report. Error " + errMsg);
+                        //}
                     }
                 }
             }
@@ -721,21 +617,301 @@ namespace pagibigEODDataPusher
             }
         }
 
+        public void GenerateExcel(DataTable dt1, DataTable dt2, ref string outputFile, ref string htmlBody)
+        {
+            string filename = "PagibigDailyMonitoringReport_Conso_" + Convert.ToDateTime(DateTime.Now).ToString("yyyyMMdd") + ".xlsx";
+            FileInfo newFile = new FileInfo(System.IO.Path.Combine(Application.StartupPath, "DailyReport\\" + filename));
+            outputFile = newFile.FullName;
+
+            foreach (DataRow rw1 in dt1.Rows)
+            {
+                DataRow rw2 = dt2.Select("Code='" + rw1["Code"].ToString() + "'")[0];
+
+                foreach (DataColumn col in dt1.Columns)
+                {
+                    switch (col.ColumnName)
+                    {
+                        case "Code":
+                        case "ReportField":
+                        case "DBField":
+                        case "DBType":                           
+                            break;
+                        case "Average":
+                            ulong intValue = 0;
+                            decimal decValue = 0;
+                            if (rw2["DBType"].ToString() == "dec") decValue = Convert.ToDecimal(rw1["Yearly"]);
+                            else if (rw2["DBType"].ToString() == "int") intValue = Convert.ToUInt64(rw1["Yearly"]);
+
+                            if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName] = Math.Round(((decimal)decValue / DateTime.Now.Month), 2);
+                            else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = Math.Round(((float)intValue / DateTime.Now.Month), 2);
+                            //rw1[col.ColumnName] = Math.Round((Convert.ToUInt64(rw1["Yearly"] / DateTime.Now.Month), 2);
+                            break;
+                        default:
+                            ulong intValue1 = 0;
+                            ulong intValue2 = 0;
+
+                            decimal decValue1 = 0;                            
+                            decimal decValue2 = 0;
+
+                            if (rw1["DBType"].ToString() == "dec") decValue1 = Convert.ToDecimal(rw1[col.ColumnName]);
+                            else if (rw1["DBType"].ToString() == "int") intValue1 = Convert.ToUInt64(rw1[col.ColumnName]);
+
+                            if (rw2["DBType"].ToString() == "dec") decValue2 = Convert.ToDecimal(rw2[col.ColumnName]);
+                            else if (rw2["DBType"].ToString() == "int") intValue2 = Convert.ToUInt64(rw2[col.ColumnName]);
+
+                            if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName]=decValue1+decValue2;
+                            else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = intValue1 + intValue2;
+                            break;
+                    }                    
+                }
+            }
+
+            //dtReport.Columns.Add("Code", Type.GetType("System.Int16"));
+            //dtReport.Columns.Add("ReportField", Type.GetType("System.String"));
+            //dtReport.Columns.Add("DBField", Type.GetType("System.String"));
+            //dtReport.Columns.Add("DBType", Type.GetType("System.String"));
+            //dtReport.Columns.Add("Prev", Type.GetType("System.String"));
+            //dtReport.Columns.Add("Mtd", Type.GetType("System.String"));
+            //dtReport.Columns.Add("1", Type.GetType("System.String"));
+            //dtReport.Columns.Add("2", Type.GetType("System.String"));
+            //dtReport.Columns.Add("3", Type.GetType("System.String"));
+            //dtReport.Columns.Add("4", Type.GetType("System.String"));
+            //dtReport.Columns.Add("5", Type.GetType("System.String"));
+            //dtReport.Columns.Add("6", Type.GetType("System.String"));
+            //dtReport.Columns.Add("7", Type.GetType("System.String"));
+            //dtReport.Columns.Add("8", Type.GetType("System.String"));
+            //dtReport.Columns.Add("9", Type.GetType("System.String"));
+            //dtReport.Columns.Add("10", Type.GetType("System.String"));
+            //dtReport.Columns.Add("11", Type.GetType("System.String"));
+            //dtReport.Columns.Add("12", Type.GetType("System.String"));
+            //dtReport.Columns.Add("Yearly", Type.GetType("System.String"));
+            //dtReport.Columns.Add("Average", Type.GetType("System.String"));
+
+            //short code = 1;
+
+            //DataRow rw = dtReport.NewRow();
+
+            //AddElementRow("Received", "Received_Card", "int", ref code); //1
+            //AddElementRow("Issued", "Issued_Card", "int", ref code);
+            //AddElementRow("  W/ Warranty", "WWarranty_Card", "int", ref code);
+            //AddElementRow("  W/O Warranty", "NWarranty_Card", "int", ref code);
+            //AddElementRow("  W/ Warranty", "WWarranty_Card", "int", ref code); //5
+            //AddElementRow("  W/O Warranty", "NWarranty_Card", "int", ref code);
+            //AddElementRow("Spoiled", "Spoiled_Card", "int", ref code);
+            //AddElementRow("Magstripe Error", "MagError_Card", "int", ref code); //8
+            //AddElementRow("Balance (Stocks)", "Balance_Card", "int", ref code);
+            //AddElementRow("Expected", "Expected_Cash", "dec", ref code);
+            //AddElementRow("Deposit (Validated)", "Deposited_Cash", "dec", ref code); //11
+            //AddElementRow("  On-site", "ByDSA_Cash", "dec", ref code);
+            //AddElementRow("  Deployed", "ByDSA_Cash", "dec", ref code);
+            //AddElementRow("     By DSA", "ByDSA_Cash", "dec", ref code);
+            //AddElementRow("     By Bank", "ByBank_Cash", "dec", ref code); //15
+            //AddElementRow("Variance", "Variance", "dec", ref code);
+            //AddElementRow("Used Ribbon", "ConsumablesUsedRibbon", "int", ref code);
+            //AddElementRow("Used Offical Receipt", "ConsumablesUsedOR", "int", ref code);
+            //AddElementRow("Used Congratulatory Letter", "ConsumablesUsedCL", "int", ref code); //19
+
+            using (ExcelPackage xlPck = new ExcelPackage(newFile))
+            {
+                ExcelWorksheet ws = xlPck.Workbook.Worksheets.Add("conso-" + DateTime.Now.ToString("yyyyMMdd_hhmmss"));
+                ws.View.ShowGridLines = false;
+
+                GenerateDashboardSheet("SUMMARY", ws, dt1, ref htmlBody);             
+
+                xlPck.Save();             
+            }
+        }
+
+        private void GenerateDashboardSheet(string bankReport, ExcelWorksheet ws, DataTable _dtReport,  ref string htmlBody)
+        {
+            ExcelRange rng = null;
+            ws.View.ShowGridLines = false;
+
+            rng = ws.Cells["B7:O32"];
+            rng.Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);           
+
+            short colDividerWidth = 3;
+            ws.Column(1).Width = colDividerWidth;
+
+            ws.Column(2).Width = 24;
+
+            ws.Column(3).Width = 10;
+            ws.Column(4).Width = 10;                                    
+
+            //months
+            int monthCount = 5 + (DateTime.Now.Month - 1);
+            for (short i = 5; i <= monthCount; i++) ws.Column(i).Width = 10;//15;
+
+            ws.Column(monthCount + 1).Width = 10;//20;
+            ws.Column(monthCount + 2).Width = 10;//20;
+
+            int intColBase = 2;
+            int intCol = intColBase;
+            int intRow = 2;
+
+            PopulateCell(ref ws, bankReport, ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
+            //if (Program.config.BankID == (short)Program.bankID.UBP) PopulateCell(ref ws, "UNION BANK OF THE PHILIPPINES", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
+            //else if (Program.config.BankID == (short)Program.bankID.AUB) PopulateCell(ref ws, "ASIA UNITED BANK", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
+            PopulateCell(ref ws, "PAG-IBIG DAILY MONITORING REPORT AS OF " + DateTime.Now.ToString("MMMM dd, yyyy"), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false, "", false);
+            PopulateCell_Url(ref ws, "Click here to view the Dashboard in PMS " + Program.config.PMSUrl, ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
+        
+
+            intRow += 1;            
+
+            PopulateHeaders(ref ws, ref intRow, ref intCol);
+
+            foreach (DataRow rw in _dtReport.Rows)
+            {
+                intCol = intColBase;
+                InsertData(ref ws, ref intRow, ref intCol, rw);
+                switch (Convert.ToInt32(rw["Code"]))
+                {
+                    case 2:
+                        intCol = intColBase;
+                        PopulateCell(ref ws, "On-site", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
+                        break;
+                    case 4:
+                        intCol = intColBase;
+                        PopulateCell(ref ws, "Deployed", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Left, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
+                        break;
+                    case 9:
+                        intRow += 1;
+                        intCol = intColBase;
+                        PopulateCell(ref ws, "CASH", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
+                        break;
+                    case 16:
+                        intRow += 1;
+                        intCol = intColBase;
+                        PopulateCell(ref ws, "CONSUMABLES", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, true, true, false);
+                        break;
+                }
+            }
+
+            StringBuilder sbHtml = new StringBuilder();
+
+            sbHtml.Append("<TABLE style=\"font-size:10px; width: 100%; font-family:verdana;\">");
+
+            for (short iRow = 2; iRow <= 32; iRow++)
+            {
+                sbHtml.Append("<TR>");
+
+                switch (iRow)
+                {
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                        for (short iCol = 2; iCol <= 15; iCol++)
+                        {
+                            if (ws.Cells[iRow, iCol].Value == null) sbHtml.Append(string.Format("<TD colspan=14>{0}</TD>", " "));
+                            else sbHtml.Append(string.Format("<TD colspan=14 style=\"font-weight:bold\">{0}</TD>", ws.Cells[iRow, iCol].Value.ToString()));
+                        }
+                        break;
+                    case 6:                    
+                    case 19:
+                    case 28:
+                        for (short iCol = 2; iCol <= 15; iCol++)
+                        {
+                            if (ws.Cells[iRow, iCol].Value == null) sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse;\">{0}</TD>", " "));
+                            else sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse; text-align: center;font-weight: bold\">{0}</TD>", ws.Cells[iRow, iCol].Value.ToString()));
+                        }
+                        break;
+                    case 9:
+                    case 12:
+                        for (short iCol = 2; iCol <= 15; iCol++)
+                        {
+                            if (ws.Cells[iRow, iCol].Value == null) sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse;\">{0}</TD>", " "));
+                            else sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse; font-weight: bold\">{0}</TD>", "   " + ws.Cells[iRow, iCol].Value.ToString()));
+                        }
+                        break;
+                    case 18:
+                    case 27:
+                        for (short iCol = 2; iCol <= 15; iCol++)
+                        {
+                            if (ws.Cells[iRow, iCol].Value == null) sbHtml.Append(string.Format("<TD>{0}</TD>", " "));
+                            else sbHtml.Append(string.Format("<TD>{0}</TD>", ws.Cells[iRow, iCol].Value.ToString()));
+                        }
+                        break;
+                    default:
+                        for (short iCol = 2; iCol <= 15; iCol++)
+                        {
+                            string value = " ";
+                            string textAlign = "";
+                            string textWidth = "";
+                            string textPadding = "";
+                            if (iCol == 2)
+                            {
+                                textWidth = "width: 9%;";
+                                if (ws.Cells[iRow, iCol].Value != null) if (ws.Cells[iRow, iCol].Value.ToString().Trim() != "") value = ws.Cells[iRow, iCol].Value.ToString();
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    if (iRow >= 20 & iRow <= 26)
+                                    {
+                                        textAlign = "text-align:right;";
+                                        textPadding = "padding-left: 5px;";
+                                        if (ws.Cells[iRow, iCol].Value != null) if (ws.Cells[iRow, iCol].Value.ToString().Trim() != "") value = Convert.ToDecimal(ws.Cells[iRow, iCol].Value).ToString("N");
+                                    }
+                                    else
+                                    {
+                                        textAlign = "text-align:center;";
+                                        if (ws.Cells[iRow, iCol].Value != null) if (ws.Cells[iRow, iCol].Value.ToString().Trim() != "") value = Convert.ToUInt64(ws.Cells[iRow, iCol].Value).ToString("N0");
+                                    }
+                                    textWidth = "width: 7%;";
+                                }
+                                catch (Exception ex)
+                                {
+                                    //Program.logger.Error(ex.Message);
+                                    if (ws.Cells[iRow, iCol].Value != null) if (ws.Cells[iRow, iCol].Value.ToString().Trim() != "") value = ws.Cells[iRow, iCol].Value.ToString();
+                                }
+                            }
+
+                            sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse; {0}{1}{2}\">{3}</TD>", textAlign, textWidth, textPadding, value));
+
+                            //if (ws.Cells[iRow, iCol].Value == null) sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse; {0}{1}\">{2}</TD>", textAlign, textWidth, " "));
+                            //else sbHtml.Append(string.Format("<TD style=\"border: 1px solid black; border-collapse: collapse; {0}{1}\">{2}</TD>", textAlign, textWidth, ws.Cells[iRow, iCol].Value.ToString()));
+                        }
+                        break;
+
+                }
+                sbHtml.Append("</TR>");
+            }
+
+            sbHtml.Append("</TABLE>");
+
+            htmlBody = sbHtml.ToString();
+        }
+
         private int GetConsumablesRemainingByBranchAndConsumable(string reqBranch, Program.consumableId consumableId)
         {
-            if (dtConsumablesInOutData.Select(string.Format("requesting_branchcode='{0}' AND ConsumableID={1}", reqBranch, (int)consumableId)).Length == 0) return 0;
+            int endBalance = 0;
+            DAL dalSys = new DAL(Program.config.DbaseConStrSys);
+            if (!dalSys.Get_ConsumablesBalance(Program.config.BankID.ToString(), reqBranch, reportDate, consumableId)) Program.logger.Error("Failed to get GetConsumablesRemainingByBranchAndConsumable branch " + reqBranch + " consumableId " + consumableId.ToString() + ". Error " + dalSys.ErrorMessage);
             else
             {
-                int inValue = 0;
-                int outValue = 0;
-                foreach (DataRow rw in dtConsumablesInOutData.Select(string.Format("requesting_branchcode='{0}' AND ConsumableID={1}", reqBranch, (int)consumableId)))
-                {
-                    if (rw["TransactionTypeID"].ToString() == "1") inValue = (int)rw["Quantity"];
-                    else if (rw["TransactionTypeID"].ToString() == "2") outValue = (int)rw["Quantity"];
-                }
-
-                return inValue - outValue;
+                endBalance = (int)dalSys.TableResult.Rows[0]["EndBalance"];
             }
+
+            dalSys.Dispose();
+            dalSys = null;
+
+            return endBalance;
+
+            //if (dtConsumablesInOutData.Select(string.Format("requesting_branchcode='{0}' AND ConsumableID={1}", reqBranch, (int)consumableId)).Length == 0) return 0;
+            //else
+            //{
+            //    int inValue = 0;
+            //    int outValue = 0;
+            //    foreach (DataRow rw in dtConsumablesInOutData.Select(string.Format("requesting_branchcode='{0}' AND ConsumableID={1}", reqBranch, (int)consumableId)))
+            //    {
+            //        if (rw["TransactionTypeID"].ToString() == "1") inValue = (int)rw["Quantity"];
+            //        else if (rw["TransactionTypeID"].ToString() == "2") outValue = (int)rw["Quantity"];
+            //    }
+
+            //    return inValue - outValue;
+            //}
         }
 
         private int GetConsumableBalance(DataTable dtSourceOut, Program.consumableId consumableId, int reportMonth)
@@ -804,7 +980,7 @@ namespace pagibigEODDataPusher
             string value = "";
 
             value = rw["Prev"].ToString().Replace(",", "");
-            if (rw["DBType"].ToString() == "dec") PopulateCell(ref ws, Convert.ToDecimal(value), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Right, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true, ExcelNumberFormat);
+            if (rw["DBType"].ToString() == "dec") PopulateCell(ref ws, "", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Right, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true, "");
             else if (rw["DBType"].ToString() == "int") PopulateCell(ref ws, Convert.ToInt64(value), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true, ExcelNumberFormat);
 
             value = rw["Mtd"].ToString().Replace(",", "");
