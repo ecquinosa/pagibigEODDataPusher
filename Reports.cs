@@ -222,7 +222,7 @@ namespace pagibigEODDataPusher
         public void GenerateReport(ref string outputFile, ref string htmlBody, ref DataTable dtOut)
         {
             try
-            {
+            {                
                 CreateReportTable();
                 GetReportData();
 
@@ -639,8 +639,8 @@ namespace pagibigEODDataPusher
                         case "Average":
                             ulong intValue = 0;
                             decimal decValue = 0;
-                            if (rw2["DBType"].ToString() == "dec") decValue = Convert.ToDecimal(rw1["Yearly"]);
-                            else if (rw2["DBType"].ToString() == "int") intValue = Convert.ToUInt64(rw1["Yearly"]);
+                            if (rw2["DBType"].ToString() == "dec") decValue = Convert.ToDecimal(rw1["Yearly"].ToString().Replace(",", ""));
+                            else if (rw2["DBType"].ToString() == "int") intValue = Convert.ToUInt64(rw1["Yearly"].ToString().Replace(",", ""));
 
                             if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName] = Math.Round(((decimal)decValue / DateTime.Now.Month), 2);
                             else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = Math.Round(((float)intValue / DateTime.Now.Month), 2);
@@ -653,11 +653,11 @@ namespace pagibigEODDataPusher
                             decimal decValue1 = 0;                            
                             decimal decValue2 = 0;
 
-                            if (rw1["DBType"].ToString() == "dec") decValue1 = Convert.ToDecimal(rw1[col.ColumnName]);
-                            else if (rw1["DBType"].ToString() == "int") intValue1 = Convert.ToUInt64(rw1[col.ColumnName]);
+                            if (rw1["DBType"].ToString() == "dec") decValue1 = Convert.ToDecimal(rw1[col.ColumnName].ToString().Replace(",", ""));
+                            else if (rw1["DBType"].ToString() == "int") intValue1 = Convert.ToUInt64(rw1[col.ColumnName].ToString().Replace(",",""));
 
-                            if (rw2["DBType"].ToString() == "dec") decValue2 = Convert.ToDecimal(rw2[col.ColumnName]);
-                            else if (rw2["DBType"].ToString() == "int") intValue2 = Convert.ToUInt64(rw2[col.ColumnName]);
+                            if (rw2["DBType"].ToString() == "dec") decValue2 = Convert.ToDecimal(rw2[col.ColumnName].ToString().Replace(",", ""));
+                            else if (rw2["DBType"].ToString() == "int") intValue2 = Convert.ToUInt64(rw2[col.ColumnName].ToString().Replace(",", ""));
 
                             if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName]=decValue1+decValue2;
                             else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = intValue1 + intValue2;

@@ -93,10 +93,10 @@ namespace pagibigEODDataPusher
             ////}
 
             //if (Convert.ToInt16(args[0]) == (short)Process.EOD) ProcessEODData();
-            //else if (Convert.ToInt16(args[0]) == (short)Process.EmailReport) EmailReport();
+            //else if (Convert.ToInt16(args[0]) == (short)Process.EmailReport) EmailReport();            
 
-            //ProcessEODData();
-            EmailReport();
+            ProcessEODData();
+            //EmailReport();
 
             CloseConnections();
 
@@ -211,6 +211,14 @@ namespace pagibigEODDataPusher
             //if (!eod.GenerateEndOfDay()) logger.Error("Failed to generate end of day report for " + reportDate);
             //return false;
             ////tempo
+
+            if (!dalSys.GenerateConsumbalesDailyEnv(config.BankID.ToString(), dateToday))
+            {
+                logger.Error("GenerateConsumbalesDailyEnv() failed. Error " + dalSys.ErrorMessage);
+                return false;
+            }
+
+            //return true;
 
             if (File.Exists(reportDateFile))
             {

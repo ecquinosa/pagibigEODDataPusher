@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Data;
 using NLog.LogReceiverService;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace pagibigEODDataPusher
 {
@@ -193,9 +194,13 @@ namespace pagibigEODDataPusher
                         //if (dtCardTxnSpoiled.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower())).Length > 0) spoiledCard = Convert.ToInt32(dtCardTxnSpoiled.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower()))[0][1]);
                         //if (dtCardTxnMagError.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower())).Length > 0) magError = Convert.ToInt32(dtCardTxnMagError.Select(string.Format("BranchCode='{0}'", item.reqBranch.ToLower()))[0][1]);
 
-                        if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(),Program.config.CardReceivedTxnCode.Replace(",","','"), item.WorkplaceId.ToString())).Length > 0) receiveCard = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardReceivedTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
-                        if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardSpoiledTxnCode.Replace(",", "','"), item.WorkplaceId.ToString())).Length > 0) spoiledCard = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardSpoiledTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
-                        if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardMagErrorTxnCode.Replace(",", "','"), item.WorkplaceId.ToString())).Length > 0) magError = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardMagErrorTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
+                        //if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardReceivedTxnCode.Replace(",", "','"), item.WorkplaceId.ToString())).Length > 0) receiveCard = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardReceivedTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
+                        //if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardSpoiledTxnCode.Replace(",", "','"), item.WorkplaceId.ToString())).Length > 0) spoiledCard = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardSpoiledTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
+                        //if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardMagErrorTxnCode.Replace(",", "','"), item.WorkplaceId.ToString())).Length > 0) magError = Convert.ToInt32(dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", item.reqBranch.ToLower(), Program.config.CardMagErrorTxnCode.Replace(",", "','"), item.WorkplaceId.ToString()))[0]["Cnt"]);
+
+                        receiveCard = GetTableCardTxnValueByBranchTxnTypeAndWorkplace(dtCardTxn, item.reqBranch.ToLower(), Program.config.CardReceivedTxnCode.Replace(",", "','"), item.WorkplaceId.ToString());
+                        spoiledCard = GetTableCardTxnValueByBranchTxnTypeAndWorkplace(dtCardTxn, item.reqBranch.ToLower(), Program.config.CardSpoiledTxnCode.Replace(",", "','"), item.WorkplaceId.ToString());
+                        magError = GetTableCardTxnValueByBranchTxnTypeAndWorkplace(dtCardTxn, item.reqBranch.ToLower(), Program.config.CardMagErrorTxnCode.Replace(",", "','"), item.WorkplaceId.ToString());                        
 
                         //////only workplaceid=1 should have spoiledcard value
                         //if (item.WorkplaceId == (short)Program.workplaceId.Deployment)
@@ -259,6 +264,19 @@ namespace pagibigEODDataPusher
             }
 
             return true;
+        }
+
+        private static int GetTableCardTxnValueByBranchTxnTypeAndWorkplace(DataTable dtCardTxn, string reqBranch, string txnTypeCodes, string workPlaceId)
+        {
+            int intValue = 0;
+            if (dtCardTxn == null) return intValue;
+
+            if (dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", reqBranch, txnTypeCodes, workPlaceId)).Length > 0)
+            {
+                foreach (DataRow rw in dtCardTxn.Select(string.Format("BranchCode='{0}' AND TransactionTypeID IN ('{1}') AND WorkPlace={2}", reqBranch, txnTypeCodes, workPlaceId))) intValue += Convert.ToInt32(rw["Cnt"]);
+            }
+
+            return intValue;
         }
 
     }

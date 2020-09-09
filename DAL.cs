@@ -601,6 +601,29 @@ namespace pagibigEODDataPusher
             }
         }
 
+        public bool GenerateConsumbalesDailyEnv(string bankId, string reportDate)
+        {
+            try
+            {
+                OpenConnection();
+                cmd = new SqlCommand("spGenerateConsumbalesDailyEnv", con);
+
+                cmd.Parameters.AddWithValue("report_date", reportDate);
+                cmd.Parameters.AddWithValue("bankId", bankId);                
+                //cmd.Parameters.AddWithValue("startDate", balanceCard);
+                cmd.Parameters.AddWithValue("endDate", reportDate);
+
+                ExecuteNonQuery(CommandType.StoredProcedure);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                strErrorMessage = ex.Message;
+                return false;
+            }
+        }
+
         public bool ExecuteScalar(string strQuery)
         {
             try
