@@ -95,8 +95,8 @@ namespace pagibigEODDataPusher
             //if (Convert.ToInt16(args[0]) == (short)Process.EOD) ProcessEODData();
             //else if (Convert.ToInt16(args[0]) == (short)Process.EmailReport) EmailReport();            
 
-            ProcessEODData();
-            //EmailReport();
+            //ProcessEODData();
+            EmailReport();
 
             CloseConnections();
 
@@ -111,7 +111,7 @@ namespace pagibigEODDataPusher
                 if (System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location)).Count() > 1)
                 {
                     //Console.WriteLine("Another instrance is running. Application will be closed.");
-                    logger.Error("Another instrance is running. Application will be closed.");
+                    logger.Error("Another instance is running. Application will be closed.");
                     return false;
                 }
 
@@ -212,14 +212,6 @@ namespace pagibigEODDataPusher
             //return false;
             ////tempo
 
-            if (!dalSys.GenerateConsumbalesDailyEnv(config.BankID.ToString(), dateToday))
-            {
-                logger.Error("GenerateConsumbalesDailyEnv() failed. Error " + dalSys.ErrorMessage);
-                return false;
-            }
-
-            //return true;
-
             if (File.Exists(reportDateFile))
             {
                 reportDate = System.IO.File.ReadAllText(reportDateFile);
@@ -250,8 +242,7 @@ namespace pagibigEODDataPusher
 
                     reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0]).ToString("yyyy-MM-dd");
                     eod = new EOD(reportDate, dateToday);
-                    if (!eod.GenerateEndOfDay()) logger.Error("Failed to generate end of day report for " + reportDate);
-                    return false;
+                    if (!eod.GenerateEndOfDay()) logger.Error("Failed to generate end of day report for " + reportDate);                    
                 }
                 else
                 {
@@ -267,65 +258,148 @@ namespace pagibigEODDataPusher
                 }
             }
 
+            if (!dalSys.GenerateConsumbalesDailyEnv(config.BankID.ToString(), dateToday))
+            {
+                logger.Error("GenerateConsumbalesDailyEnv() failed. Error " + dalSys.ErrorMessage);
+                return false;
+            }
+
             return true;
         }
 
         private static bool EmailReport()
         {
-            short oldBankId = config.BankID;
-
-            if (File.Exists(reportDateFile))
-            {
-                reportDate = System.IO.File.ReadAllText(reportDateFile);
-                dateToday = Convert.ToDateTime(reportDate).Date.AddDays(1).ToString("yyyy-MM-dd");
-            }
-            else
-            {
-                DataTable dtLastTwoEntryDates = null;
-
-                if (!dalLocal.SelectLastTwoEntryDates())
-                {
-                    logger.Error("Failed to get last 2 dates of member table");
-                    return false;
-                }
-                else dtLastTwoEntryDates = dalLocal.TableResult;
-
-                if (Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0].ToString()).Date != DateTime.Now.Date) reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0]).ToString("yyyy-MM-dd");
-                else reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[1][0]).ToString("yyyy-MM-dd");
-            }
-
-            Reports report = null;
-
-            report = new Reports(reportDate, dateToday);
+            Reports report = null;            
             string outputFile1 = "";
             string outputFile2 = "";
             string outputFile3 = "";
-            string htmlBody1 = "";
-            string htmlBody2 = "";
-            string htmlBody3 = "";
 
-            DataTable dt1 = null;
-            DataTable dt2 = null;
+            //added on 09/16/2020. check first if emailbody already exist. if exist 
+            if (File.Exists(Reports.EmailBodyFile(DateTime.Now.ToString("yyyy-MM-dd"))))
+            {
+                if (DateTime.Now.Date != Convert.ToDateTime(config.LastSuccessEmailSend).Date)
+                {
+                    foreach (string file in Directory.GetFiles(Reports.GetDailyReportRepo(DateTime.Now.ToString("yyyy-MM-dd"))))
+                    {
+                        if (Path.GetExtension(file).ToUpper() == ".XLSX")
+                        {
+                            if (Path.GetFileNameWithoutExtension(file).Contains("UBP")) outputFile1 = file;
+                            else if (Path.GetFileNameWithoutExtension(file).Contains("AUB")) outputFile2 = file;
+                        }
+                    }
 
-            report.GenerateReport(ref outputFile1, ref htmlBody1, ref dt1);
-            if (oldBankId == (short)bankID.UBP) config.BankID = (short)bankID.AUB;
-            else config.BankID = (short)bankID.UBP;
+                    SendEmail(System.IO.File.ReadAllText(Reports.EmailBodyFile(DateTime.Now.ToString("yyyy-MM-dd"))), outputFile1, outputFile2);
 
-            report = null;
-            report = new Reports(reportDate, dateToday);
-            report.GenerateReport(ref outputFile2, ref htmlBody2, ref dt2);
+                    return true;
+                }
+                else return true;
+            }
+            else
+            {
+                short oldBankId = config.BankID;
 
-            report.GenerateExcel(dt1, dt2, ref outputFile3, ref htmlBody3);
+                Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Getting last 2 dates...");
+                logger.Info("Getting last 2 dates");
+                if (File.Exists(reportDateFile))
+                {
+                    reportDate = System.IO.File.ReadAllText(reportDateFile);
+                    dateToday = Convert.ToDateTime(reportDate).Date.AddDays(1).ToString("yyyy-MM-dd");
+                }
+                else
+                {
+                    DataTable dtLastTwoEntryDates = null;
 
-            config.BankID = oldBankId;
+                    if (!dalLocal.SelectLastTwoEntryDates())
+                    {
+                        logger.Error("Failed to get last 2 dates of member table");
+                        return false;
+                    }
+                    else dtLastTwoEntryDates = dalLocal.TableResult;
 
-            SendMail sendMail = new SendMail();
-            string errMsg = "";            
-            if (sendMail.SendNotification(Program.config, htmlBody3 + "<br><br>" + htmlBody1 + "<br><br>" + htmlBody2, string.Format("Pag-Ibig Daily Monitoring Report - {0}", DateTime.Now.ToString("MM/dd/yyyy")), outputFile1, outputFile2, ref errMsg))
-                Program.logger.Info("Report successfully sent");
-            else Program.logger.Error("Failed to send report. Error " + errMsg);            
+                    if (Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0].ToString()).Date != DateTime.Now.Date) reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[0][0]).ToString("yyyy-MM-dd");
+                    else reportDate = Convert.ToDateTime(dtLastTwoEntryDates.Rows[1][0]).ToString("yyyy-MM-dd");
+                }
 
-            return true;
+                string htmlBody1 = "";
+                string htmlBody2 = "";
+                string htmlBody3 = "";
+
+                DataTable dt1 = null;
+                DataTable dt2 = null;
+             
+                report = new Reports(reportDate, dateToday);
+                Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Generating report for bankId " + config.BankID.ToString() + "...");
+                logger.Info("Generating report for bankId " + config.BankID.ToString());
+                if (report.GenerateReport(ref outputFile1, ref htmlBody1, ref dt1))
+                {
+                    if (oldBankId == (short)bankID.UBP) config.BankID = (short)bankID.AUB;
+                    else config.BankID = (short)bankID.UBP;
+
+                    report = null;
+                    report = new Reports(reportDate, dateToday);
+                    Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Generating report for bankId " + config.BankID.ToString() + "...");
+                    logger.Info("Generating report for bankId " + config.BankID.ToString());
+                    if (report.GenerateReport(ref outputFile2, ref htmlBody2, ref dt2))
+                    {
+                        Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Generating excel...");
+                        logger.Info("Generating excel");
+                        report.GenerateExcelv2(dt1, dt2, ref outputFile3, ref htmlBody3);
+
+                        config.BankID = oldBankId;
+
+                        string emailBody = htmlBody3 + "<br><br>" + htmlBody1 + "<br><br>" + htmlBody2;
+                        report.SaveDailyEmailBody(emailBody);
+
+                        SendEmail(emailBody, outputFile1, outputFile2);
+                        return true;
+                    }
+                    else
+                    {
+                        config.BankID = oldBankId;
+                        return false;
+                    }
+                }
+                else
+                {
+                    config.BankID = oldBankId;
+                    return false;
+                }
+            }
+        }
+
+        private static void SendEmail(string emailBody, string outputFile1, string outputFile2)
+        {
+            if (config.IsSendEmail == 1)
+            {
+                SendMail sendMail = new SendMail();
+                try
+                {
+                    Console.WriteLine(DateTime.Now.ToString("MM/dd/yy hh:mm:ss ") + "Sending email...");
+                    logger.Info("Sending email");
+
+                    string errMsg = "";
+                    if (sendMail.SendNotification(Program.config, emailBody, string.Format("Pag-Ibig Daily Monitoring Report - {0}", DateTime.Now.ToString("MM/dd/yyyy")), outputFile1, outputFile2, ref errMsg))
+                    {
+                        logger.Info("Report successfully sent");
+
+                        config.LastSuccessEmailSend = DateTime.Now.ToString("yyyy-MM-dd");
+                        var configs = new List<Config>();
+                        configs.Add(config);
+
+                        System.IO.File.WriteAllText(configFile, Newtonsoft.Json.JsonConvert.SerializeObject(configs));
+                    }
+                    else
+                    {
+                        logger.Error("Failed to send report. Error " + errMsg);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error("Failed to send report. Error " + ex.Message);
+                }
+                finally
+                { sendMail = null; }
+            }
         }
 
         private static void DirectoryCopy(string sourceDirName, string destDirName, bool copySubDirs)

@@ -219,7 +219,14 @@ namespace pagibigEODDataPusher
             return value;
         }
 
-        public void GenerateReport(ref string outputFile, ref string htmlBody, ref DataTable dtOut)
+        public static string GetDailyReportRepo(string reportDate)
+        {
+            string dirPath = System.IO.Path.Combine(Application.StartupPath, "DailyReport", reportDate);
+            if (!Directory.Exists(dirPath)) Directory.CreateDirectory(dirPath);
+            return dirPath;
+        }
+
+        public bool GenerateReport(ref string outputFile, ref string htmlBody, ref DataTable dtOut)
         {
             try
             {                
@@ -363,7 +370,8 @@ namespace pagibigEODDataPusher
                     }
 
                     dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0]["Yearly"] = totalInt.ToString("N0");
-                    dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0]["Average"] = Math.Round(((float)totalInt / DateTime.Now.Month), 2);
+                    dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0]["Average"] = Math.Round(((float)totalInt / DateTime.Now.Month), 0);
+                    //dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0]["Average"] = ((float)totalInt / DateTime.Now.Month);
                 }
 
                 foreach (DataRow rw in dtDec.Rows)
@@ -390,14 +398,8 @@ namespace pagibigEODDataPusher
                                 dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0][i.ToString()] = value.ToString("N");
                                 break;
                             default:
-                                //if ((short)rw["Code"] != (short)ReportElement.CashVariance) value = GetValueDecimal(dtData, i, 0, rw["DBField"].ToString());
-                                //else value = decExpectedCash - decDeposited;
-
                                 value = GetValueDecimal(dtData, i, 0, rw["DBField"].ToString());
-                                dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0][i.ToString()] = value.ToString("N");
-
-                                //if ((short)rw["Code"] == (short)ReportElement.CashExpected) decExpectedCash = value;
-                                //else if ((short)rw["Code"] == (short)ReportElement.CashDeposit) decDeposited = value;
+                                dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0][i.ToString()] = value.ToString("N");                                
 
                                 break;
                         }
@@ -408,7 +410,7 @@ namespace pagibigEODDataPusher
                     }
 
                     dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0]["Yearly"] = totalDec.ToString("N");
-                    dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0]["Average"] = Math.Round((totalDec / DateTime.Now.Month), 2);
+                    dtReport.Select(string.Format("Code={0}", (short)rw["Code"]))[0]["Average"] = Math.Round(totalDec / DateTime.Now.Month,0);
                 }
 
                 dal.Dispose();
@@ -453,13 +455,13 @@ namespace pagibigEODDataPusher
                         catch (IOException e)
                         {
                             Console.Write("Check if file is open");
-                            return;
+                            return false;
                         }
                     }
 
                     dtOut = dtReport;
 
-                    FileInfo newFile = new FileInfo(System.IO.Path.Combine(Application.StartupPath, "DailyReport\\" + filename));
+                    FileInfo newFile = new FileInfo(System.IO.Path.Combine(GetDailyReportRepo(DateTime.Now.ToString("yyyy-MM-dd")), filename));
                     outputFile = newFile.FullName;
 
                     ExcelRange rng = null;
@@ -512,11 +514,7 @@ namespace pagibigEODDataPusher
                         rng.Style.Border.Left.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Right.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
                         rng.Style.Border.Bottom.Style = OfficeOpenXml.Style.ExcelBorderStyle.Thin;
-                        rng.Merge = true;
-                        //ws.Cells[rng.Address].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Center;
-
-                        //ExcelRange rng = ws.Cells["B7:O32"];
-                        //rng.Style.Border.BorderAround(OfficeOpenXml.Style.ExcelBorderStyle.Thin);                        
+                        rng.Merge = true;                                        
 
                         ws.Column(1).Width = colDividerWidth;
                         ws.Column(2).Width = 30;
@@ -585,31 +583,20 @@ namespace pagibigEODDataPusher
                                 }
 
                             }
-                            intRow += 1;
-                            //PopulateCell(ref ws, Convert.ToInt64(rw[dtReport2.Columns.Count - 1]), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, true,true, "#,##0;(#,##0)",true);                            
+                            intRow += 1;                            
                         }
 
 
-                        xlPck.Save();
-
-                        //SendMail sendMail = new SendMail();
-                        //string errMsg = "";
-                        ////if (sendMail.SendNotification(Program.config, "[THIS IS AN AUTOMATED MESSAGE - PLEASE DO NOT REPLY DIRECTLY TO THIS EMAIL]", "TEST", newFile.FullName, ref errMsg))
-                        ////if (sendMail.SendNotification(Program.config, sbHtml.ToString(), string.Format("Pag-ibig Daily Monitoring Report x {0} - {1}", bankCode, DateTime.Now.ToString("MM/dd/yyyy")), newFile.FullName, ref errMsg))
-                        //if (sendMail.SendNotification(Program.config, sbHtml.ToString(), string.Format("Pag-ibig Daily Monitoring Report x {0} - {1}", bankCode, reportDate), newFile.FullName, ref errMsg))
-                        //{
-                        //    Program.logger.Info("Report successfully sent");
-                        //}
-                        //else
-                        //{
-                        //    Program.logger.Error("Failed to send report. Error " + errMsg);
-                        //}
+                        xlPck.Save();                        
                     }
                 }
+
+                return true;
             }
             catch (Exception ex)
             {
                 Program.logger.Error("Failed to generate report. Runtime error " + ex.Message);
+                return false;
             }
             finally
             {
@@ -620,7 +607,7 @@ namespace pagibigEODDataPusher
         public void GenerateExcel(DataTable dt1, DataTable dt2, ref string outputFile, ref string htmlBody)
         {
             string filename = "PagibigDailyMonitoringReport_Conso_" + Convert.ToDateTime(DateTime.Now).ToString("yyyyMMdd") + ".xlsx";
-            FileInfo newFile = new FileInfo(System.IO.Path.Combine(Application.StartupPath, "DailyReport\\" + filename));
+            FileInfo newFile = new FileInfo(System.IO.Path.Combine(GetDailyReportRepo(DateTime.Now.ToString("yyyy-MM-dd")), filename));
             outputFile = newFile.FullName;
 
             foreach (DataRow rw1 in dt1.Rows)
@@ -642,8 +629,10 @@ namespace pagibigEODDataPusher
                             if (rw2["DBType"].ToString() == "dec") decValue = Convert.ToDecimal(rw1["Yearly"].ToString().Replace(",", ""));
                             else if (rw2["DBType"].ToString() == "int") intValue = Convert.ToUInt64(rw1["Yearly"].ToString().Replace(",", ""));
 
-                            if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName] = Math.Round(((decimal)decValue / DateTime.Now.Month), 2);
-                            else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = Math.Round(((float)intValue / DateTime.Now.Month), 2);
+                            if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName] = Math.Round(((decimal)decValue / DateTime.Now.Month), 0);
+                            else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = Math.Round(((float)intValue / DateTime.Now.Month), 0);
+                            //if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName] = ((decimal)decValue / DateTime.Now.Month);
+                            //else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = ((float)intValue / DateTime.Now.Month);
                             //rw1[col.ColumnName] = Math.Round((Convert.ToUInt64(rw1["Yearly"] / DateTime.Now.Month), 2);
                             break;
                         default:
@@ -664,52 +653,7 @@ namespace pagibigEODDataPusher
                             break;
                     }                    
                 }
-            }
-
-            //dtReport.Columns.Add("Code", Type.GetType("System.Int16"));
-            //dtReport.Columns.Add("ReportField", Type.GetType("System.String"));
-            //dtReport.Columns.Add("DBField", Type.GetType("System.String"));
-            //dtReport.Columns.Add("DBType", Type.GetType("System.String"));
-            //dtReport.Columns.Add("Prev", Type.GetType("System.String"));
-            //dtReport.Columns.Add("Mtd", Type.GetType("System.String"));
-            //dtReport.Columns.Add("1", Type.GetType("System.String"));
-            //dtReport.Columns.Add("2", Type.GetType("System.String"));
-            //dtReport.Columns.Add("3", Type.GetType("System.String"));
-            //dtReport.Columns.Add("4", Type.GetType("System.String"));
-            //dtReport.Columns.Add("5", Type.GetType("System.String"));
-            //dtReport.Columns.Add("6", Type.GetType("System.String"));
-            //dtReport.Columns.Add("7", Type.GetType("System.String"));
-            //dtReport.Columns.Add("8", Type.GetType("System.String"));
-            //dtReport.Columns.Add("9", Type.GetType("System.String"));
-            //dtReport.Columns.Add("10", Type.GetType("System.String"));
-            //dtReport.Columns.Add("11", Type.GetType("System.String"));
-            //dtReport.Columns.Add("12", Type.GetType("System.String"));
-            //dtReport.Columns.Add("Yearly", Type.GetType("System.String"));
-            //dtReport.Columns.Add("Average", Type.GetType("System.String"));
-
-            //short code = 1;
-
-            //DataRow rw = dtReport.NewRow();
-
-            //AddElementRow("Received", "Received_Card", "int", ref code); //1
-            //AddElementRow("Issued", "Issued_Card", "int", ref code);
-            //AddElementRow("  W/ Warranty", "WWarranty_Card", "int", ref code);
-            //AddElementRow("  W/O Warranty", "NWarranty_Card", "int", ref code);
-            //AddElementRow("  W/ Warranty", "WWarranty_Card", "int", ref code); //5
-            //AddElementRow("  W/O Warranty", "NWarranty_Card", "int", ref code);
-            //AddElementRow("Spoiled", "Spoiled_Card", "int", ref code);
-            //AddElementRow("Magstripe Error", "MagError_Card", "int", ref code); //8
-            //AddElementRow("Balance (Stocks)", "Balance_Card", "int", ref code);
-            //AddElementRow("Expected", "Expected_Cash", "dec", ref code);
-            //AddElementRow("Deposit (Validated)", "Deposited_Cash", "dec", ref code); //11
-            //AddElementRow("  On-site", "ByDSA_Cash", "dec", ref code);
-            //AddElementRow("  Deployed", "ByDSA_Cash", "dec", ref code);
-            //AddElementRow("     By DSA", "ByDSA_Cash", "dec", ref code);
-            //AddElementRow("     By Bank", "ByBank_Cash", "dec", ref code); //15
-            //AddElementRow("Variance", "Variance", "dec", ref code);
-            //AddElementRow("Used Ribbon", "ConsumablesUsedRibbon", "int", ref code);
-            //AddElementRow("Used Offical Receipt", "ConsumablesUsedOR", "int", ref code);
-            //AddElementRow("Used Congratulatory Letter", "ConsumablesUsedCL", "int", ref code); //19
+            }         
 
             using (ExcelPackage xlPck = new ExcelPackage(newFile))
             {
@@ -719,6 +663,68 @@ namespace pagibigEODDataPusher
                 GenerateDashboardSheet("SUMMARY", ws, dt1, ref htmlBody);             
 
                 xlPck.Save();             
+            }
+        }
+
+        public void GenerateExcelv2(DataTable dt1, DataTable dt2, ref string outputFile, ref string htmlBody)
+        {
+            string filename = "PagibigDailyMonitoringReport_Conso_" + Convert.ToDateTime(DateTime.Now).ToString("yyyyMMdd") + ".xlsx";
+            FileInfo newFile = new FileInfo(System.IO.Path.Combine(GetDailyReportRepo(DateTime.Now.ToString("yyyy-MM-dd")), filename));
+            outputFile = newFile.FullName;
+
+            foreach (DataRow rw1 in dt1.Rows)
+            {
+                DataRow rw2 = dt2.Select("Code='" + rw1["Code"].ToString() + "'")[0];
+
+                foreach (DataColumn col in dt1.Columns)
+                {
+                    switch (col.ColumnName)
+                    {
+                        case "Code":
+                        case "ReportField":
+                        case "DBField":
+                        case "DBType":
+                            break;
+                        case "Average":
+                            int intValue = 0;
+                            decimal decValue = 0;
+                            if (rw2["DBType"].ToString() == "dec") decValue = Convert.ToDecimal(rw1["Yearly"].ToString().Replace(",", ""));
+                            else if (rw2["DBType"].ToString() == "int") intValue = Convert.ToInt32(rw1["Yearly"].ToString().Replace(",", ""));
+
+                            if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName] = Math.Round(((decimal)decValue / DateTime.Now.Month), 0);
+                            else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = Math.Round(((float)intValue / DateTime.Now.Month), 0);
+                            //if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName] = ((decimal)decValue / DateTime.Now.Month);
+                            //else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = ((float)intValue / DateTime.Now.Month);
+                            //rw1[col.ColumnName] = Math.Round((Convert.ToUInt64(rw1["Yearly"] / DateTime.Now.Month), 2);
+                            break;
+                        default:
+                            int intValue1 = 0;
+                            int intValue2 = 0;
+
+                            decimal decValue1 = 0;
+                            decimal decValue2 = 0;
+
+                            if (rw1["DBType"].ToString() == "dec") decValue1 = Convert.ToDecimal(rw1[col.ColumnName].ToString().Replace(",", ""));
+                            else if (rw1["DBType"].ToString() == "int") intValue1 = Convert.ToInt32(rw1[col.ColumnName].ToString().Replace(",", ""));
+
+                            if (rw2["DBType"].ToString() == "dec") decValue2 = Convert.ToDecimal(rw2[col.ColumnName].ToString().Replace(",", ""));
+                            else if (rw2["DBType"].ToString() == "int") intValue2 = Convert.ToInt32(rw2[col.ColumnName].ToString().Replace(",", ""));
+
+                            if (rw2["DBType"].ToString() == "dec") rw1[col.ColumnName] = decValue1 + decValue2;
+                            else if (rw2["DBType"].ToString() == "int") rw1[col.ColumnName] = intValue1 + intValue2;
+                            break;
+                    }
+                }
+            }
+
+            using (ExcelPackage xlPck = new ExcelPackage(newFile))
+            {
+                ExcelWorksheet ws = xlPck.Workbook.Worksheets.Add("conso-" + DateTime.Now.ToString("yyyyMMdd_hhmmss"));
+                ws.View.ShowGridLines = false;
+
+                GenerateDashboardSheet("SUMMARY", ws, dt1, ref htmlBody);
+
+                xlPck.Save();
             }
         }
 
@@ -849,15 +855,36 @@ namespace pagibigEODDataPusher
                                 try
                                 {
                                     if (iRow >= 20 & iRow <= 26)
-                                    {
-                                        textAlign = "text-align:right;";
+                                    {                                        
                                         textPadding = "padding-left: 5px;";
-                                        if (ws.Cells[iRow, iCol].Value != null) if (ws.Cells[iRow, iCol].Value.ToString().Trim() != "") value = Convert.ToDecimal(ws.Cells[iRow, iCol].Value).ToString("N");
+                                        if (ws.Cells[iRow, iCol].Value != null)
+                                        {
+                                            if (ws.Cells[iRow, iCol].Value.ToString().Trim() != "")
+                                            {
+                                                if (iCol != 15)
+                                                {
+                                                    textAlign = "text-align:right;";
+                                                    value = Convert.ToDecimal(ws.Cells[iRow, iCol].Value).ToString("N");
+                                                }
+                                                else
+                                                {
+                                                    textAlign = "text-align:center;";
+                                                    value = Convert.ToDecimal(ws.Cells[iRow, iCol].Value).ToString();
+                                                }
+                                            }
+                                        }
                                     }
                                     else
                                     {
                                         textAlign = "text-align:center;";
-                                        if (ws.Cells[iRow, iCol].Value != null) if (ws.Cells[iRow, iCol].Value.ToString().Trim() != "") value = Convert.ToUInt64(ws.Cells[iRow, iCol].Value).ToString("N0");
+                                        if (ws.Cells[iRow, iCol].Value != null)
+                                        {
+                                            if (ws.Cells[iRow, iCol].Value.ToString().Trim() != "")
+                                            {                                                
+                                                if (iCol != 15) value = Convert.ToUInt64(ws.Cells[iRow, iCol].Value).ToString("N0");
+                                                else value = Convert.ToUInt64(ws.Cells[iRow, iCol].Value).ToString();
+                                            }
+                                        }
                                     }
                                     textWidth = "width: 7%;";
                                 }
@@ -1008,7 +1035,8 @@ namespace pagibigEODDataPusher
             else if (rw["DBType"].ToString() == "int") PopulateCell(ref ws, Convert.ToInt64(value), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true, ExcelNumberFormat);
 
             //last row should have isIncrement=true
-            PopulateCell(ref ws, Convert.ToDecimal(rw["Average"]), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, true, true, "#,##0.00;(#,##0.00)");
+            PopulateCell(ref ws, Convert.ToDecimal(rw["Average"]), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, true, true, "#,##0;(#,##0)");
+            //PopulateCell(ref ws, rw["Average"].ToString(), ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, true, true);
         }
 
         public void PopulateCell(ref ExcelWorksheet ws, object value, ref int intRow, ref int intCol,
@@ -1090,6 +1118,16 @@ namespace pagibigEODDataPusher
             PopulateCell(ref ws, "", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true);
             PopulateCell(ref ws, "", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, false, true);
             PopulateCell(ref ws, "", ref intRow, ref intCol, OfficeOpenXml.Style.ExcelHorizontalAlignment.Center, OfficeOpenXml.Style.ExcelVerticalAlignment.Top, 10, false, true, true);
+        }
+
+        public void SaveDailyEmailBody(string emailBody)
+        {
+            using (StreamWriter sw = new StreamWriter(EmailBodyFile(DateTime.Now.ToString("yyyy-MM-dd")))) sw.Write(emailBody);
+        }
+
+        public static string EmailBodyFile(string reportDate)
+        {
+            return System.IO.Path.Combine(GetDailyReportRepo(reportDate), "EmailBody.txt");
         }
 
     }

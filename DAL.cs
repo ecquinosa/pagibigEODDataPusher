@@ -140,7 +140,7 @@ namespace pagibigEODDataPusher
                 sb.Append(string.Format("SELECT dbo.tbl_Member.requesting_branchcode AS reqBranch, tbl_branch.Branch, RefNum, Application_Remarks ", reportDate, bankID));
                 sb.Append("FROM dbo.tbl_Member INNER JOIN ");
                 sb.Append("tbl_branch on tbl_branch.requesting_branchcode = dbo.tbl_Member.requesting_branchcode ");
-                sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59'", reportDate));                
+                sb.Append(string.Format("WHERE dbo.tbl_Member.EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:59:59'", reportDate));                
 
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);
@@ -311,7 +311,7 @@ namespace pagibigEODDataPusher
                 string txnTypes = string.Format("'{0}','{1}','{2}'",Program.config.CardReceivedTxnCode.Replace(",","','"), Program.config.CardSpoiledTxnCode.Replace(",", "','"), Program.config.CardMagErrorTxnCode.Replace(",", "','"));
 
                 sb.Append("select BranchCode, TransactionTypeID, Workplace, SUM(Quantity) As Cnt from tbl_DCS_Card_Transaction ");
-                sb.Append(string.Format("where TransactionTypeID IN ({0}) and TransactionDate BETWEEN '{1} 00:00:00' AND '{1} 23:23:59' ", txnTypes, reportDate));                
+                sb.Append(string.Format("where TransactionTypeID IN ({0}) and TransactionDate BETWEEN '{1} 00:00:00' AND '{1} 23:59:59' ", txnTypes, reportDate));                
                 sb.Append("GROUP BY BranchCode, TransactionTypeID, Workplace");
 
                 OpenConnection();
@@ -334,12 +334,19 @@ namespace pagibigEODDataPusher
             {
                 StringBuilder sb = new StringBuilder();
 
-                sb.Append("SELECT aa.ConsumableID, MONTH(dbo.tbl_DCS_EODDeposits.Report_Date) ReportMonth, SUM(cast(aa.Quantity as int)) As Total ");
-                sb.Append("FROM dbo.tbl_DCS_DSAConsumables aa INNER JOIN ");
-                sb.Append("dbo.tbl_DCS_EODDeposits ON aa.EODDepositsID = dbo.tbl_DCS_EODDeposits.ID ");
-                sb.Append(string.Format("WHERE aa.ConsumableID IN (1, 2, 3) AND dbo.tbl_DCS_EODDeposits.BankID = {0} AND aa.TransactionTypeID = {1} AND ", bankId, txnTypeId));
-                sb.Append(string.Format("dbo.tbl_DCS_EODDeposits.Report_Date BETWEEN '{0}' AND '{1}' ", startDate, endDate));
-                sb.Append("GROUP BY aa.ConsumableID, MONTH(dbo.tbl_DCS_EODDeposits.Report_Date) ");
+                //commented out on 09/11
+                //sb.Append("SELECT aa.ConsumableID, MONTH(dbo.tbl_DCS_EODDeposits.Report_Date) ReportMonth, SUM(cast(aa.Quantity as int)) As Total ");
+                //sb.Append("FROM dbo.tbl_DCS_DSAConsumables aa INNER JOIN ");
+                //sb.Append("dbo.tbl_DCS_EODDeposits ON aa.EODDepositsID = dbo.tbl_DCS_EODDeposits.ID ");
+                //sb.Append(string.Format("WHERE aa.ConsumableID IN (1, 2, 3) AND dbo.tbl_DCS_EODDeposits.BankID = {0} AND aa.TransactionTypeID = {1} AND ", bankId, txnTypeId));
+                //sb.Append(string.Format("dbo.tbl_DCS_EODDeposits.Report_Date BETWEEN '{0}' AND '{1}' ", startDate, endDate));
+                //sb.Append("GROUP BY aa.ConsumableID, MONTH(dbo.tbl_DCS_EODDeposits.Report_Date) ");
+
+                sb.Append("SELECT aa.ConsumableID, MONTH(aa.Posted_Date) ReportMonth, SUM(cast(aa.Quantity as int)) As Total ");
+                sb.Append("FROM dbo.tbl_DCS_DSAConsumables aa ");                
+                sb.Append(string.Format("WHERE aa.ConsumableID IN (1, 2, 3) AND aa.bankID = {0} AND aa.TransactionTypeID = {1} AND ", bankId, txnTypeId));
+                sb.Append(string.Format("aa.Posted_Date BETWEEN '{0} 00:00:00' AND '{1} 23:59:59' ", startDate, endDate));
+                sb.Append("GROUP BY aa.ConsumableID, MONTH(aa.Posted_Date) ");
 
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);
@@ -361,11 +368,17 @@ namespace pagibigEODDataPusher
             {
                 StringBuilder sb = new StringBuilder();
 
-                sb.Append("SELECT dbo.tbl_DCS_EODDeposits.requesting_branchcode, aa.TransactionTypeID, aa.ConsumableID, cast(aa.Quantity as int) Quantity ");
-                sb.Append("FROM dbo.tbl_DCS_DSAConsumables aa INNER JOIN ");
-                sb.Append("dbo.tbl_DCS_EODDeposits ON aa.EODDepositsID = dbo.tbl_DCS_EODDeposits.ID ");
-                sb.Append(string.Format("WHERE aa.ConsumableID IN (1, 2, 3) AND dbo.tbl_DCS_EODDeposits.BankID = {0} AND aa.TransactionTypeID IN (1, 2) AND ", bankId));
-                sb.Append(string.Format("dbo.tbl_DCS_EODDeposits.Report_Date BETWEEN '{0}' AND '{1}' ", startDate, endDate));                
+                //09/11
+                //sb.Append("SELECT dbo.tbl_DCS_EODDeposits.requesting_branchcode, aa.TransactionTypeID, aa.ConsumableID, cast(aa.Quantity as int) Quantity ");
+                //sb.Append("FROM dbo.tbl_DCS_DSAConsumables aa INNER JOIN ");
+                //sb.Append("dbo.tbl_DCS_EODDeposits ON aa.EODDepositsID = dbo.tbl_DCS_EODDeposits.ID ");
+                //sb.Append(string.Format("WHERE aa.ConsumableID IN (1, 2, 3) AND dbo.tbl_DCS_EODDeposits.BankID = {0} AND aa.TransactionTypeID IN (1, 2) AND ", bankId));
+                //sb.Append(string.Format("dbo.tbl_DCS_EODDeposits.Report_Date BETWEEN '{0}' AND '{1}' ", startDate, endDate));
+
+                sb.Append("SELECT aa.branchCode requesting_branchcode, aa.TransactionTypeID, aa.ConsumableID, cast(aa.Quantity as int) Quantity ");
+                sb.Append("FROM dbo.tbl_DCS_DSAConsumables aa ");                
+                sb.Append(string.Format("WHERE aa.ConsumableID IN (1, 2, 3) AND aa.bankID = {0} AND aa.TransactionTypeID IN (1, 2) AND ", bankId));
+                sb.Append(string.Format("aa.Posted_Date BETWEEN '{0} 00:00:00' AND '{1} 23:59:59' ", startDate, endDate));
 
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);
@@ -444,8 +457,8 @@ namespace pagibigEODDataPusher
         //    {
         //        StringBuilder sb = new StringBuilder();
         //        sb.Append("select BranchCode, SUM(Quantity) As Spoiled from tbl_DCS_Card_Transaction ");
-        //        //sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
-        //        sb.Append(string.Format("where TransactionTypeID IN ('03') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
+        //        //sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:59:59' ", reportDate));
+        //        sb.Append(string.Format("where TransactionTypeID IN ('03') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:59:59' ", reportDate));
         //        sb.Append("GROUP BY BranchCode");
 
         //        OpenConnection();
@@ -468,8 +481,8 @@ namespace pagibigEODDataPusher
         //    {
         //        StringBuilder sb = new StringBuilder();
         //        sb.Append("select BranchCode, SUM(Quantity) As Spoiled from tbl_DCS_Card_Transaction ");
-        //        //sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
-        //        sb.Append(string.Format("where TransactionTypeID IN ('13') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:23:59' ", reportDate));
+        //        //sb.Append(string.Format("where TransactionTypeID IN ('03','06','07','08') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:59:59' ", reportDate));
+        //        sb.Append(string.Format("where TransactionTypeID IN ('13') and EntryDate BETWEEN '{0} 00:00:00' AND '{0} 23:59:59' ", reportDate));
         //        sb.Append("GROUP BY BranchCode");
 
         //        OpenConnection();
@@ -521,7 +534,7 @@ namespace pagibigEODDataPusher
             {
                 StringBuilder sb = new StringBuilder();
                 sb.Append("SELECT refNum, workplaceID, bankID FROM tbl_EOD_MemberRefNum ");                
-                sb.Append(string.Format("WHERE posted_date BETWEEN '{0} 00:00:00' AND '{1} 23:23:59' and bankID = {2}", Convert.ToDateTime(reportDate).AddDays(-5).ToString("yyyy-MM-dd"), reportDate, bankId));
+                sb.Append(string.Format("WHERE posted_date BETWEEN '{0} 00:00:00' AND '{1} 23:59:59' and bankID = {2}", Convert.ToDateTime(reportDate).AddDays(-5).ToString("yyyy-MM-dd"), reportDate, bankId));
 
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);

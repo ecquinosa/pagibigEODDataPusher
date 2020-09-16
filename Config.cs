@@ -8,14 +8,14 @@ namespace pagibigEODDataPusher
 {
     class Config
     {
-        public short BankID { get; set; }        
+        public short BankID { get; set; }
         public string DbaseConStrUbp { get; set; }
         public string DbaseConStrAub { get; set; }
         public string DbaseConStrSys { get; set; }
 
         public string SmtpHost { get; set; }
         public int SmtpPort { get; set; }
-        public string SmtpUser  { get; set; }
+        public string SmtpUser { get; set; }
         public string SmtpPassword { get; set; }
         public int SmtpTimeout { get; set; }
 
@@ -28,5 +28,14 @@ namespace pagibigEODDataPusher
         public string CardMagErrorTxnCode { get; set; }
 
         public string PMSUrl { get; set; }
+
+        public short IsSendEmail { get; set; }
+        public string LastSuccessEmailSend { get; set; }
+
+        public Config()
+        {
+            IsSendEmail = 1;
+            LastSuccessEmailSend = "";
+        }
     }
 }

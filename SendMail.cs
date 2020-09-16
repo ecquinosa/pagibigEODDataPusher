@@ -20,18 +20,24 @@ namespace pagibigEODDataPusher
                 client.Timeout = config.SmtpTimeout; //10000;                
                 client.Credentials = new System.Net.NetworkCredential(config.SmtpUser, config.SmtpPassword);
 
-                MailMessage mm = new MailMessage(config.SmtpUser, config.EmailRecipientsTo, msgSubject, msgBody);
-                //mm.To.Add(config.EmailRecipientsTo);
-                mm.CC.Add(config.EmailRecipientsCC);
+                MailMessage mm = new MailMessage(config.SmtpUser, config.EmailRecipientsTo, msgSubject, msgBody);                
+                if (config.EmailRecipientsCC != "") mm.CC.Add(config.EmailRecipientsCC);
                 mm.Bcc.Add("ecquinosa@allcardtech.com.ph");
                 mm.BodyEncoding = System.Text.UTF8Encoding.UTF8;
                 mm.DeliveryNotificationOptions = DeliveryNotificationOptions.OnFailure;
                 mm.IsBodyHtml = true;
 
-                Attachment attachment1 = new Attachment(fileAttachment1, System.Net.Mime.MediaTypeNames.Application.Octet);
-                Attachment attachment2 = new Attachment(fileAttachment2, System.Net.Mime.MediaTypeNames.Application.Octet);
-                mm.Attachments.Add(attachment1);
-                mm.Attachments.Add(attachment2);
+                if (fileAttachment1 != "")
+                {
+                    Attachment attachment1 = new Attachment(fileAttachment1, System.Net.Mime.MediaTypeNames.Application.Octet);
+                    mm.Attachments.Add(attachment1);
+                }
+
+                if (fileAttachment2 != "")
+                {
+                    Attachment attachment2 = new Attachment(fileAttachment2, System.Net.Mime.MediaTypeNames.Application.Octet);
+                    mm.Attachments.Add(attachment2);
+                }
 
                 client.Send(mm);                
                 
