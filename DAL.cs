@@ -796,7 +796,7 @@ namespace pagibigEODDataPusher
 
                 if (id == 0)
                 {
-                    if (!Add_EODDeployed(Convert.ToInt32(objResult), WorkplaceID))
+                    if (!Add_EODDeployed(Convert.ToInt32(objResult), WorkplaceID, Report_Date))
                     {
                         Program.logger.Error(string.Format("reqBranch {0} Branch {1} WorkplaceId {2}. Failed to add EODDeployed. Error {3}", requesting_branchcode, Branch, WorkplaceID, ErrorMessage));
                     }
@@ -811,7 +811,7 @@ namespace pagibigEODDataPusher
             }
         }
 
-        public bool Add_EODDeployed(int EODDepositID, string workplaceId)
+        public bool Add_EODDeployed(int EODDepositID, string workplaceId, string Report_Date)
         {
             try
             {
@@ -824,10 +824,12 @@ namespace pagibigEODDataPusher
                 OpenConnection();
                 cmd = new SqlCommand(sb.ToString(), con);
                 cmd.Parameters.AddWithValue("EODDepositID", EODDepositID);
-                if(workplaceId=="1")
-                    cmd.Parameters.AddWithValue("DaysGracePeriod", 1);                
-                else
-                    cmd.Parameters.AddWithValue("DaysGracePeriod", 2);
+                //if(workplaceId=="1")
+                //    cmd.Parameters.AddWithValue("DaysGracePeriod", 1);                
+                //else
+                //    cmd.Parameters.AddWithValue("DaysGracePeriod", 2);
+
+                cmd.Parameters.AddWithValue("DaysGracePeriod", EOD.GetGracePeriod((Program.workplaceId)Convert.ToInt32(workplaceId), Convert.ToDateTime(Report_Date)));                
 
                 ExecuteNonQuery(CommandType.Text);
 

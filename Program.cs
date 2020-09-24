@@ -60,7 +60,7 @@ namespace pagibigEODDataPusher
 
         //static void Main(string[] args)        
         static void Main()
-        {
+        {           
             logger.Info("Application started");
 
             //validatations
@@ -72,31 +72,10 @@ namespace pagibigEODDataPusher
                 System.Threading.Thread.Sleep(5000);
                 Environment.Exit(0);
                 return;
-            }
+            }          
 
-            ////string[] args = { "2", "5" };
-            ////validate arguments
-            //if (args == null)
-            //{
-            //    logger.Error("Args is null");
-            //    Environment.Exit(0);
-            //    return;
-            //}
-            ////else
-            ////{
-            ////    if (args.Length != 2)
-            ////    {
-            ////        logger.Error("Args is invalid");
-            ////        Environment.Exit(0);
-            ////        return;
-            ////    }
-            ////}
-
-            //if (Convert.ToInt16(args[0]) == (short)Process.EOD) ProcessEODData();
-            //else if (Convert.ToInt16(args[0]) == (short)Process.EmailReport) EmailReport();            
-
-            //ProcessEODData();
-            EmailReport();
+            ProcessEODData();
+            //EmailReport();
 
             CloseConnections();
 

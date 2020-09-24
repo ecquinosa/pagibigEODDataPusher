@@ -279,5 +279,30 @@ namespace pagibigEODDataPusher
             return intValue;
         }
 
+        public static int GetGracePeriod(Program.workplaceId workplaceId, DateTime txnDate)
+        {
+            int noOfDays = 0;
+            switch (txnDate.DayOfWeek)
+            {
+                case DayOfWeek.Thursday:
+                    if (workplaceId == Program.workplaceId.Onsite) noOfDays = 1; else noOfDays = 4;                 
+                    break;
+                case DayOfWeek.Friday:
+                    if (workplaceId == Program.workplaceId.Onsite) noOfDays = 3; else noOfDays = 4;
+                    break;
+                case DayOfWeek.Saturday:
+                    if (workplaceId == Program.workplaceId.Onsite) noOfDays = 3; else noOfDays = 4;
+                    break;
+                case DayOfWeek.Sunday:
+                    if (workplaceId == Program.workplaceId.Onsite) noOfDays = 2; else noOfDays = 3;
+                    break;
+                default:
+                    if (workplaceId == Program.workplaceId.Onsite) noOfDays = 1; else noOfDays = 2;
+                    break;
+            }            
+
+            return noOfDays;
+        }
+
     }
 }
